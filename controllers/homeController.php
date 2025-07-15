@@ -21,6 +21,7 @@ class homeController {
         $proximasTarefasTabela = $model->getProximasTarefasTabela($login);
         $tarefasAtrasadasTabela = $model->getTarefasAtrasadasTabela($login);
         $todasTarefasTabela = $model->getTodasTarefasTabela($login);
+        $ultimasTarefasRealizadasTabela = $model->getUltimasTarefasRealizadasTabela($login);
 
         // Monta array para passar à view
         $dadosParaView = [
@@ -34,7 +35,8 @@ class homeController {
             'tarefasAtrasadas' => $tarefasAtrasadas,
             'proximasTarefasTabela' => $proximasTarefasTabela,
             'tarefasAtrasadasTabela' => $tarefasAtrasadasTabela,
-            'todasTarefasTabela' => $todasTarefasTabela 
+            'todasTarefasTabela' => $todasTarefasTabela,
+            'ultimasTarefasRealizadasTabela' => $ultimasTarefasRealizadasTabela 
         ];
 
         include 'views/home/home.php';

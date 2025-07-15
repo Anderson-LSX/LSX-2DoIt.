@@ -135,6 +135,42 @@ class homeModel {
     return $tarefas;
     }
 
+    public function getUltimasTarefasRealizadasTabela($login) {
+    $conn = $this->conectar();
+
+    // Busca o USU_ID pelo login
+    $stmt = $conn->prepare("SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?");
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+    $stmt->bind_result($usu_id);
+    $stmt->fetch();
+    $stmt->close();
+
+    $tarefas = [];
+
+    // Busca as últimas tarefas com status CONCLUÍDA, ordena pela data de realização desc (mais recentes primeiro), limite 10
+    $sql = "
+        SELECT TASK_ID, TASK_TITULO, TASK_TIPOTAREFA, TASK_PRIORIDADE, TASK_DATAINICIO, TASK_DATAFIM, TASK_DATAREALIZACAO, TASK_STATUS
+        FROM TAREFAS
+        WHERE USU_ID = ? AND TASK_STATUS = 'CONCLUÍDA'
+        ORDER BY TASK_DATAREALIZACAO DESC
+        LIMIT 10
+    ";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $usu_id);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+
+    while ($row = $resultado->fetch_assoc()) {
+        $tarefas[] = $row;
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    return $tarefas;
+}
 
 
 

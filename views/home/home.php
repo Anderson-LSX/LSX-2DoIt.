@@ -204,6 +204,38 @@
 <!-- cards tabela tarefas realizadas -->
 <div style="border: 1px solid black; margin-left: 220px; margin-right: 220px; padding: 15px; margin-bottom: 20px;">
     <h3>Últimas Tarefas realizadas</h3>
+    <?php if (!empty($dadosParaView['ultimasTarefasRealizadasTabela'])): ?>
+        <table border="1" cellpadding="8" cellspacing="0" width="100%" style="border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Título</th>
+                    <th>Tipo</th>
+                    <th>Prioridade</th>
+                    <th>Início</th>
+                    <th>Vencimento</th>
+                    <th>Data Realização</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dadosParaView['ultimasTarefasRealizadasTabela'] as $t): ?>
+                    <tr>
+                        <td><?= $t['TASK_ID'] ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TITULO']) ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TIPOTAREFA']) ?></td>
+                        <td><?= $t['TASK_PRIORIDADE'] ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAINICIO'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAFIM'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAREALIZACAO'])) ?></td>
+                        <td><?= $t['TASK_STATUS'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?>
+        <p>Sem tarefas concluídas.</p>
+    <?php endif; ?>
 </div>
 
 <!-- Linha divisória -->
