@@ -17,9 +17,10 @@ class homeController {
         $tarefasPendentes = $model->getTarefasPendentes($login);
         $tarefasAtrasadas = $model->getTarefasAtrasadas($login);
 
-        // Busca lista detalhada para a tabela de próximas tarefas
+        // Busca lista detalhada para cards de tabela
         $proximasTarefasTabela = $model->getProximasTarefasTabela($login);
         $tarefasAtrasadasTabela = $model->getTarefasAtrasadasTabela($login);
+        $todasTarefasTabela = $model->getTodasTarefasTabela($login);
 
         // Monta array para passar à view
         $dadosParaView = [
@@ -32,7 +33,8 @@ class homeController {
             'tarefasPendentes' => $tarefasPendentes,
             'tarefasAtrasadas' => $tarefasAtrasadas,
             'proximasTarefasTabela' => $proximasTarefasTabela,
-            'tarefasAtrasadasTabela' => $tarefasAtrasadasTabela 
+            'tarefasAtrasadasTabela' => $tarefasAtrasadasTabela,
+            'todasTarefasTabela' => $todasTarefasTabela 
         ];
 
         include 'views/home/home.php';

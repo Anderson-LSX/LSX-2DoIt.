@@ -28,12 +28,12 @@ class homeModel {
     }
 
     // Métodos que retornam números - views
-    public function getQtdProximasTarefas($login) { /* ... igual ao seu código ... */ }
-    public function getQtdConcluidasUlt30Dias($login) { /* ... igual ao seu código ... */ }
-    public function getTotalTarefas($login) { /* ... igual ao seu código ... */ }
-    public function getTarefasAltaPrioridade($login) { /* ... igual ao seu código ... */ }
-    public function getTarefasPendentes($login) { /* ... igual ao seu código ... */ }
-    public function getTarefasAtrasadas($login) { /* ... igual ao seu código ... */ }
+    public function getQtdProximasTarefas($login) {}
+    public function getQtdConcluidasUlt30Dias($login) {}
+    public function getTotalTarefas($login) {}
+    public function getTarefasAltaPrioridade($login) {}
+    public function getTarefasPendentes($login) {}
+    public function getTarefasAtrasadas($login) {}
 
     // Método que retorna array detalhado para tabela
     public function getProximasTarefasTabela($login) {
@@ -89,7 +89,51 @@ class homeModel {
     $conn->close();
 
     return $tarefas;
-}
+    }
+
+    public function getTodasTarefasTabela($login) {
+    $conn = $this->conectar();
+
+    // Busca o ID do usuário a partir do login
+    $stmt = $conn->prepare("SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?");
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+    $stmt->bind_result($usu_id);
+    $stmt->fetch();
+    $stmt->close();
+
+    // Busca todas as tarefas do usuário
+    $tarefas = [];
+
+    $sql = "
+        SELECT 
+            TASK_ID,
+            TASK_TITULO,
+            TASK_TIPOTAREFA,
+            TASK_PRIORIDADE,
+            TASK_DATAINICIO,
+            TASK_DATAFIM,
+            TASK_STATUS
+        FROM TAREFAS
+        WHERE USU_ID = ?
+        ORDER BY TASK_DATAINICIO DESC
+        LIMIT 20
+    ";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $usu_id);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+
+    while ($row = $resultado->fetch_assoc()) {
+        $tarefas[] = $row;
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    return $tarefas;
+    }
 
 
 
