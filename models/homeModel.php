@@ -72,6 +72,7 @@ class homeModel {
                 SELECT USU_ID FROM usuario WHERE USU_LOGIN = ?
             )
             AND TASK_DATAFIM >= CURDATE()
+            AND TASK_STATUS = 'PENDENTE'
             ORDER BY TASK_DATAFIM ASC
             LIMIT 10
         ";
