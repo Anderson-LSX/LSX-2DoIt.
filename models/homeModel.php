@@ -28,7 +28,32 @@ class homeModel {
     }
 
     // Métodos que retornam números - views
-    public function getQtdProximasTarefas($login) {}
+   public function getQtdProximasTarefas($login) {
+    // Conecta ao banco via método conectar()
+    $conn = $this->conectar();
+
+    $quantidade = 0;
+
+    // Consulta a view correta de tarefas pendentes para o usuário
+    $sql = "SELECT tarefas_pendentes FROM vw_tarefas_pendentes_por_usuario WHERE USU_ID = (SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?)";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+
+    $resultado = $stmt->get_result();
+
+    if ($resultado && $row = $resultado->fetch_assoc()) {
+        $quantidade = $row['tarefas_pendentes'];
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    return $quantidade;
+}
+
+
     public function getQtdConcluidasUlt30Dias($login) {}
     public function getTotalTarefas($login) {}
     public function getTarefasAltaPrioridade($login) {}

@@ -47,19 +47,10 @@
 
     <!-- Card: Próximas Tarefas -->
     <div style="border: 1px solid black; padding: 20px; width: 48%; display: inline-block; margin: 1%;">
-        <h3>Próximas Tarefas</h3>
-        <?php if (!empty($dadosParaView['proximasTarefas'])): ?>
-            <ul>
-                <?php foreach ($dadosParaView['proximasTarefas'] as $t): ?>
-                    <li>
-                        <?= htmlspecialchars($t['TASK_TITULO']) ?> —
-                        <?= date('d/m/Y H:i', strtotime($t['TASK_DATAFIM'])) ?>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        <?php else: ?>
-            <p>Sem tarefas próximas.</p>
-        <?php endif; ?>
+    <h3>Próximas Tarefas</h3>
+    <p style="font-size: 24px; font-weight: bold;">
+        <?= isset($dadosParaView['proximasTarefasQtd']) ? $dadosParaView['proximasTarefasQtd'] : '0' ?>
+    </p>
     </div>
 
     <!-- card 2: Qtd tarefas concluidas ult 30 dias -->
