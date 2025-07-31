@@ -14,7 +14,7 @@
         <li><a href="index.php?controller=tarefa&method=gestaoTarefa">Minhas tarefas</a></li>
         <li><a href="index.php?controller=estatisticas&method=estatisticas">Estatísticas</a></li>
         <li><a href="index.php?controller=perfil&method=meuPerfil">Meu Perfil</a></li>
-        <li>Definições</li>
+        <li><a href="index.php?controller=definicoes&method=definicoes">Definições</a></li>
         <li><a href="index.php?controller=auth&method=logout">Logout</a></li>
     </ul>
 </div>
