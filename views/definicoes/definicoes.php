@@ -58,15 +58,17 @@
             <label for="tema"><strong>Tema:</strong></label><br>
             <select id="tema" name="tema" style="padding: 8px; width: 200px; border: 1px solid black;">
                 <option value="default">Default</option>
-                <option value="escuro">Escuro</option>
-                <option value="claro">Claro</option>
+                <option value="indigo">Indigo</option>
+                <option value="clear">Clear</option>
+                <option value="meia-noite">Meia-Noite</option>
+                <option value="win-98">Win-98</option>
             </select>
         </div>
 
         <!-- Saudação dinâmica -->
         <div style="margin-bottom: 20px;">
             <label style="display: flex; align-items: center; cursor: pointer;">
-                <span style="margin-right: 10px;">Saudação dinâmica</span>
+                <span style="margin-right: 10px;">Saudação dinâmica     </span>
                 <input type="checkbox" id="toggleSaudacaoDinamica" style="display:none;">
                 <span class="switch"></span>
             </label>
