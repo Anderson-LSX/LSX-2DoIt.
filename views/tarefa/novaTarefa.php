@@ -30,6 +30,13 @@
     <!-- Descrição -->
     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
 
+    <!-- Mensagem de erro, se existir -->
+<?php if (!empty($dadosParaView['erro'])): ?>
+    <div style="color: red; font-weight: bold; margin-bottom: 15px;">
+        <?= htmlspecialchars($dadosParaView['erro']) ?>
+    </div>
+<?php endif; ?>
+
     <!-- Formulário de Nova Tarefa -->
     <form method="POST" action="index.php?controller=tarefa&method=salvar" style="margin: 0 220px;">
 
