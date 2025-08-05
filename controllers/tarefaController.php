@@ -7,7 +7,8 @@ class tarefaController {
     // Método para exibir o formulário de criação de nova tarefa
     public function novaTarefa() {
         date_default_timezone_set('America/Sao_Paulo');
-        $dataPadrao = new DateTime('now + 5 minutes');
+        $dataPadrao = new DateTime();
+        $dataPadrao->modify('+5 minutes');
 
         $erro = $_SESSION['erro'] ?? null;
         $sucesso = $_SESSION['sucesso'] ?? null;

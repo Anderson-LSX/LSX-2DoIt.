@@ -76,9 +76,6 @@
     id="datafim"                             
     name="datafim"                           
     value="<?= isset($dadosParaView['dataVencimento']) ? htmlspecialchars($dadosParaView['dataVencimento']) : '' ?>" 
-    min="<?= isset($dadosParaView['dataMinima']) ? htmlspecialchars($dadosParaView['dataMinima']) : '' ?>"      
-    step="60" 
-    required
     style="width: 100%; padding: 8px; margin-bottom: 20px; border: 1px solid #000;"
 >
 
