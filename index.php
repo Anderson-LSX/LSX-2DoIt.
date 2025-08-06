@@ -98,13 +98,18 @@ if (file_exists($controllerFile)) {
 
             if (file_exists($viewFile)) {
                 if (is_array($resultado)) {
-                    
-                    // isso cria variáveis na view com o nome das chaves do array
-                    extract($resultado); 
-                    // Definir os dados para a view dentro de um array padrão
+                    extract($resultado);
                     $dadosParaView = $resultado;
                 }
+
+                // Captura o conteúdo da view via buffer
+                ob_start();
                 require_once $viewFile;
+                $conteudo = ob_get_clean();
+
+                // Inclui layout.php, que deve usar $conteudo e $dadosParaView
+                require_once 'layout.php';
+
             } else {
                 echo "Erro: Arquivo da view '$viewFile' não encontrado.";
             }
