@@ -1,6 +1,47 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
 
-
+/* Cor de fundo geral do site */
 body {
     font-family: 'Roboto', sans-serif;
+    background-color: #F3F2EF;
 }
+
+/* Estrutura base para cards */
+.card {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid #E0E0E0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    margin: 60px auto;
+    max-width: 400px;
+}
+
+/* Estilo global para campos de formulário (exceto botões) */
+input,
+textarea,
+select {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid rgb(165, 165, 165);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    margin-bottom: 16px;
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+}
+
+/* Estilo visual exclusivo para botões */
+button {
+    border-radius: 6px;
+    padding: 10px 16px;
+    background-color: #013a73; /* azul padrão do LinkedIn, opcional */
+    color: white;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+       

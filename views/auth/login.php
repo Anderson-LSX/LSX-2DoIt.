@@ -20,9 +20,9 @@
 <?php endif; ?>
 
 
-<div style="max-width: 400px; margin: 60px auto; border: 1px solid black; padding: 30px;">
+<div class='card'>
     <h1 style="text-align: center;">Login</h1>
-    <h2 style="text-align: center; font-size: 16px;">Acesse sua conta ou cadastre-se para prosseguir</h2>
+    <h2 style="text-align: center; font-size: 16px;">Entre ou cadastre-se</h2>
 
     <form method="POST" action="index.php?controller=auth&method=loginSubmit" style="margin-top: 20px;">
         <label>Login:</label><br>
