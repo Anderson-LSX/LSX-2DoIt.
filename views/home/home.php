@@ -19,8 +19,8 @@
     </ul>
 </div>
 
-<!-- Card de boas-vindas -->
-<div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; margin-top: 40px;">
+<!-- Card headers de boas-vindas -->
+<div class="card-headers">
     <h1>Bonjour, <?= htmlspecialchars($dadosParaView['nomeParaExibir']) ?>!</h1>
 </div>
 

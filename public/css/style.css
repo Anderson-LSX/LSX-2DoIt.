@@ -1,26 +1,38 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
 
-/* Cor de fundo geral do site */
+/* Cor de fundo do site */
 body {
     font-family: 'Roboto', sans-serif;
     background-color: #F3F2EF;
 }
 
-/* Estrutura base para cards */
-.card {
+/* Estrutura card login */
+.card-login {
     background-color: #FFFFFF;
     border-radius: 8px;
     border: 1px solid #E0E0E0;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.464);
     padding: 30px;
     margin: 60px auto;
     max-width: 400px;
 }
 
-/* Estilo global para campos de formulário (exceto botões) */
-input,
-textarea,
-select {
+/* Estrutura card headers */
+.card-headers {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid #E0E0E0;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.464);
+    padding: 40px;
+    margin: 40px auto;
+    margin-left: 220px;
+    margin-right: 220px;
+    margin-bottom: 20px;
+    margin-top: 40px;
+}
+
+/* Estilo campos de formulário */
+input, textarea, select {
     background-color: #FFFFFF;
     border-radius: 8px;
     border: 1px solid rgb(165, 165, 165);
@@ -32,7 +44,7 @@ select {
     box-sizing: border-box;
 }
 
-/* Estilo visual exclusivo para botões */
+/* Estilo visual botões */
 button {
     border-radius: 6px;
     padding: 10px 16px;
@@ -44,4 +56,31 @@ button {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Estilo visual botão voltar */
+.button-voltar {
+    position: absolute;
+    top: 40px;
+    left: 20px;
+}
+
+.button-voltar.voltar {
+    
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+}
+
+/* Estilo visual Breadcrumbs */
+breadcrumbs {
+    margin-left: 260px;
+    margin-right: 220px;
+    margin-top: 40px;
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: #555;
+}
        

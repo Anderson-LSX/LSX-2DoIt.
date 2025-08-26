@@ -14,14 +14,7 @@
     </a>
 </div>
 
-<!-- Breadcrumb -->
-<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
-    <p style="font-size: 14px; color: #555;">
-        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
-            Home
-        </a> &gt; Minhas tarefas
-    </p>
-</div>
+
 
 <?php if (!empty($dadosParaView['sucesso'])): ?>
     <div style="color: green; font-weight: bold; margin: 10px 220px;">
@@ -30,9 +23,18 @@
 <?php endif; ?>
 
 <!-- Card principal -->
-<div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px;">
+<div class="card-headers">
     <h1>Minhas Tarefas</h1>
     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+</div>
+
+<!-- Breadcrumb -->
+<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+    <p style="font-size: 14px; color: #555;">
+        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+            Home
+        </a> &gt; Minhas tarefas
+    </p>
 </div>
 
 <!-- Botão nova tarefa -->
@@ -97,17 +99,31 @@
     </tbody>
 </table>
 
-<!-- Rodapé fixo padrão -->
+<!-- Footer fixo padrão -->
 <footer style="
     position: fixed;
     border: 1px solid black;
-    padding: 20px;
+    padding: 10px 20px;
     bottom: 0;
     left: 220px;
     right: 220px;
-    padding: 10px 20px 10px 20px;
-    background: none;
+    background: #fff;
     z-index: 999;
 ">
     <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
 </footer>
+
+<!-- Footer fixo 
+<footer style="
+    position: fixed;
+    border: 1px solid black;
+    padding: 10px 20px;
+    bottom: 0;
+    left: 220px; 
+    right: 220px;
+    background: #fff;
+    z-index: 999;
+">
+    <p align="right">&copy; <?= htmlspecialchars($dadosParaView['anoAtual']) ?> Organizador. Todos os direitos reservados.</p>
+</footer>
+<div style="height: 80px;"></div> -->

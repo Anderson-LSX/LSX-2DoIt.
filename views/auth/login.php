@@ -20,9 +20,9 @@
 <?php endif; ?>
 
 
-<div class='card'>
+<div class='card-login'>
     <h1 style="text-align: center;">Login</h1>
-    <h2 style="text-align: center; font-size: 16px;">Entre ou cadastre-se</h2>
+    <p style="text-align: center;">Entre ou cadastre-se</p>
 
     <form method="POST" action="index.php?controller=auth&method=loginSubmit" style="margin-top: 20px;">
         <label>Login:</label><br>
@@ -36,7 +36,7 @@
 
     <div style="margin-top: 20px; text-align: center;">
         <a href="index.php?controller=auth&method=esqueciSenha">Esqueci minha senha</a><br><br>
-        <span>Ainda não tem uma conta? </span>
-        <a href="index.php?controller=auth&method=cadastro">Cadastre-se</a>
+        <span>Ainda não tá com a gente? </span>
+        <a href="index.php?controller=auth&method=cadastro">Chega mais!</a>
     </div>
 </div>

@@ -1,4 +1,29 @@
-<!-- Estilização inline básica conforme padrão -->
+<!-- Botão de retorno padrão no canto superior esquerdo -->
+<div style="position: absolute; top: 20px; left: 20px;">
+    <a href="index.php?controller=home&method=index"
+       style="
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+       ">
+        &#8592; Voltar
+    </a>
+</div>
+
+<!-- Card principal -->
+<div class="card-headers">
+
+    <!-- Título -->
+    <h1>Estatísticas</h1>
+
+    <!-- Texto Lorem Ipsum -->
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+
+</div>
 
 <!-- Breadcrumb -->
 <div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
@@ -9,31 +34,15 @@
     </p>
 </div>
 
-<!-- Card principal -->
-<div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px;">
-
-    <!-- Título -->
-    <h1>Estatísticas</h1>
-
-    <!-- Texto Lorem Ipsum -->
-    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
-
-</div>
-
-<!-- Footer padrão -->
-<footer style="text-align: center; margin-top: 50px; font-size: 12px; color: #888;">
-    
-</footer>
-
+<!-- Footer fixo padrão -->
 <footer style="
     position: fixed;
     border: 1px solid black;
-    padding: 20px;
+    padding: 10px 20px;
     bottom: 0;
-    left: 220px; /* respeita a largura da barra lateral */
+    left: 220px;
     right: 220px;
-    padding: 10px 20px 10px 20px;
-    background: none;
+    background: #fff;
     z-index: 999;
 ">
     <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
