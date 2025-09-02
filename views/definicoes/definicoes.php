@@ -16,7 +16,7 @@
 
 
 <!-- Card principal -->
-<div class="card-headers">
+<div class="card card-headers">
     <h1>Definições</h1>
     <p>Nesta seção, você pode ajustar as preferências da sua conta e da aplicação.</p>
 </div>

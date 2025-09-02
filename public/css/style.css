@@ -6,6 +6,19 @@ body {
     background-color: #F3F2EF;
 }
 
+/*Estrutura padrão do tipo card*/
+.card {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid #E0E0E0;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.464);
+    margin-left: 220px;
+    margin-right: 220px;
+    margin-bottom: 20px;
+    padding: 40px;
+}
+
+
 /* Estrutura card login */
 .card-login {
     background-color: #FFFFFF;
@@ -19,15 +32,6 @@ body {
 
 /* Estrutura card headers */
 .card-headers {
-    background-color: #FFFFFF;
-    border-radius: 8px;
-    border: 1px solid #E0E0E0;
-    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.464);
-    padding: 40px;
-    margin: 40px auto;
-    margin-left: 220px;
-    margin-right: 220px;
-    margin-bottom: 20px;
     margin-top: 40px;
 }
 
@@ -83,4 +87,14 @@ breadcrumbs {
     text-decoration: none;
     color: #555;
 }
-       
+   
+.footer {
+    position: fixed;
+    border: 1px solid black;
+    padding: 10px 20px;
+    bottom: 0;
+    left: 220px; /* respeita a largura da barra lateral */
+    right: 220px;
+    background: #fff;
+    z-index: 999;
+}

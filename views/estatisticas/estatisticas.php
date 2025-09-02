@@ -15,7 +15,7 @@
 </div>
 
 <!-- Card principal -->
-<div class="card-headers">
+<div class="card card-headers">
 
     <!-- Título -->
     <h1>Estatísticas</h1>

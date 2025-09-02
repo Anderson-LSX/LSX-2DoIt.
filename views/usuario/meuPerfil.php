@@ -19,7 +19,7 @@
 
 
 <!-- Card principal -->
-<div class="card-headers">
+<div class="card card-headers">
     <h1>Meu Perfil</h1>
     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
 </div>

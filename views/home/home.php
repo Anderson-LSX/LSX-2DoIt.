@@ -20,7 +20,7 @@
 </div>
 
 <!-- Card headers de boas-vindas -->
-<div class="card-headers">
+<div class="card card-headers">
     <h1>Bonjour, <?= htmlspecialchars($dadosParaView['nomeParaExibir']) ?>!</h1>
 </div>
 

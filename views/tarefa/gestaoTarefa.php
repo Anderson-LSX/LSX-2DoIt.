@@ -22,8 +22,8 @@
     </div>
 <?php endif; ?>
 
-<!-- Card principal -->
-<div class="card-headers">
+<!-- Card header -->
+<div class="card card-headers">
     <h1>Minhas Tarefas</h1>
     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
 </div>
