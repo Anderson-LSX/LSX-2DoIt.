@@ -13,14 +13,19 @@
     </head>
 
     <body>
-
+        <div class="main-content">
         <?php
             // Conteúdo da view principal injetado aqui:
             if (isset($conteudo)) {echo $conteudo;}
         ?>
+        </div>
 
         <!-- Script único para JS -->
         <script src="public/js/script.js"></script>
+
+        
+
+
 
     </body>
 
