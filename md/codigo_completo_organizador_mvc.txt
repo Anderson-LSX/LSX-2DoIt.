@@ -1,0 +1,5398 @@
+﻿=== controllers\authController.php ===
+<?php
+// Importa a model que cuida dos dados do usuÃ¡rio
+require_once __DIR__ . '/../models/authModel.php';
+
+class authController {
+
+    private $authModel; // atributo para a model
+    private const SESSION_TIMEOUT = 3600; // tempo de inatividade em segundos
+
+    public function __construct() {
+        $this->authModel = new authModel();
+    }
+
+    // =================== LOGIN ===================
+    // MÃ©todo estÃ¡tico para checar se o usuÃ¡rio estÃ¡ logado e sessÃ£o vÃ¡lida
+    
+    public static function checkLogin() {
+        if (!isset($_SESSION['usuario_logado'])) {
+            return false;
+        }
+
+        if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > self::SESSION_TIMEOUT)) {
+            session_unset();
+            session_destroy();
+            return false;
+        }
+
+        $_SESSION['LAST_ACTIVITY'] = time();
+        return true;
+    }
+
+    // Exibe a pÃ¡gina de login
+    public function login() {
+        // Inicializa variÃ¡veis que serÃ£o enviadas para a view
+        $sessao_expirada = false;
+        $erro_login = '';
+
+        if (isset($_GET['expirado']) && $_GET['expirado'] == 1) {
+            $sessao_expirada = true;
+        }
+
+        // Busca mensagem de erro de login na sessÃ£o, se existir
+        if (isset($_SESSION['erro_login'])) {
+            $erro_login = $_SESSION['erro_login'];
+            unset($_SESSION['erro_login']); // Limpa o erro para prÃ³xima requisiÃ§Ã£o
+        }
+
+        // Retorna os dados que serÃ£o usados na view
+        return [
+            'sessao_expirada' => $sessao_expirada,
+            'erro_login' => $erro_login
+        ];
+    }
+
+    // Processa o formulÃ¡rio de login enviado pelo usuÃ¡rio
+    public function loginSubmit() {
+        $login = trim($_POST['login'] ?? ''); // Remove espaÃ§os extras
+        $senha = $_POST['senha'] ?? ''; // Captura senha
+
+        // ValidaÃ§Ã£o bÃ¡sica: campos obrigatÃ³rios
+        if (empty($login) || empty($senha)) {
+            $_SESSION['erro_login'] = "Login e senha sÃ£o obrigatÃ³rios.";
+            header("Location: index.php?controller=auth&method=login");
+            exit;
+        }
+
+         // Busca usuÃ¡rio no banco via model
+        $usuario = $this->authModel->findByLogin($login);
+
+        // Valida se usuÃ¡rio existe e senha estÃ¡ correta
+        if ($usuario && password_verify($senha, $usuario['usu_senha'])) {
+            // Cria sessÃ£o para usuÃ¡rio logado
+            $_SESSION['usuario_logado'] = $login;
+            $_SESSION['usuario_nome'] = $usuario['usu_nome'];
+            $_SESSION['usuario_id'] = $usuario['usu_id'];
+            $_SESSION['LAST_ACTIVITY'] = time();
+
+            // Flag para mostrar splash apenas apÃ³s login
+            $_SESSION['show_splash'] = true;
+
+            // Redireciona para pÃ¡gina inicial apÃ³s login
+            header("Location: index.php?controller=home&method=index");
+            exit;
+        } else {
+            // UsuÃ¡rio nÃ£o encontrado ou senha incorreta
+            $_SESSION['erro_login'] = $usuario ? "Senha incorreta." : "UsuÃ¡rio nÃ£o encontrado.";
+            header("Location: index.php?controller=auth&method=login");
+            exit;
+        }
+    }
+
+    // =================== RECUPERAÃ‡ÃƒO DE SENHA ===================
+
+    public function esqueciSenha() {
+        $erro = $_SESSION['erro_esqueci_senha'] ?? null;
+        $dados = $_SESSION['dados_esqueci_senha'] ?? [];
+
+        unset($_SESSION['erro_esqueci_senha'], $_SESSION['dados_esqueci_senha']);
+
+        return [
+            'erro' => $erro,
+            'dados' => $dados
+        ];
+    }
+
+    public function validaDadosParaReset() {
+        $nome = trim($_POST['nome'] ?? '');
+        $idade = trim($_POST['idade'] ?? '');
+        $login = trim($_POST['login'] ?? '');
+
+        $dados = ['nome' => $nome, 'idade' => $idade, 'login' => $login];
+
+        if (!$nome || !$idade || !$login) {
+            $_SESSION['erro_esqueci_senha'] = "Todos os campos sÃ£o obrigatÃ³rios.";
+            $_SESSION['dados_esqueci_senha'] = $dados;
+            header('Location: index.php?controller=auth&method=esqueciSenha');
+            exit;
+        }
+
+        if (!filter_var($idade, FILTER_VALIDATE_INT)) {
+            $_SESSION['erro_esqueci_senha'] = "Idade invÃ¡lida.";
+            $_SESSION['dados_esqueci_senha'] = $dados;
+            header('Location: index.php?controller=auth&method=esqueciSenha');
+            exit;
+        }
+
+        $usuario = $this->authModel->findByNomeIdadeLogin($nome, (int)$idade, $login);
+
+        if ($usuario) {
+            $_SESSION['reset_login'] = $login;
+            unset($_SESSION['erro_esqueci_senha'], $_SESSION['dados_esqueci_senha']);
+            header('Location: index.php?controller=auth&method=novaSenha');
+            exit;
+        } else {
+            $_SESSION['erro_esqueci_senha'] = "Dados invÃ¡lidos para redefiniÃ§Ã£o de senha.";
+            $_SESSION['dados_esqueci_senha'] = $dados;
+            header('Location: index.php?controller=auth&method=esqueciSenha');
+            exit;
+        }
+    }
+
+    public function novaSenha() {
+        if (!isset($_SESSION['reset_login'])) {
+            return ['erro' => 'SessÃ£o expirada. Recomece o processo.'];
+        }
+
+        $erro = $_SESSION['erro_nova_senha'] ?? null;
+        unset($_SESSION['erro_nova_senha']);
+
+        return ['erro' => $erro];
+    }
+
+    public function processaNovaSenha() {
+        if (!isset($_SESSION['reset_login'])) {
+            header('Location: index.php?controller=auth&method=esqueciSenha');
+            exit;
+        }
+
+        $novaSenha = trim($_POST['nova_senha'] ?? '');
+        $login = $_SESSION['reset_login'];
+
+        if ($novaSenha === '') {
+            $_SESSION['erro_nova_senha'] = 'Senha invÃ¡lida.';
+            header('Location: index.php?controller=auth&method=novaSenha');
+            exit;
+        }
+
+        $senhaHash = password_hash($novaSenha, PASSWORD_DEFAULT);
+        $sucesso = $this->authModel->updateSenha($login, $senhaHash);
+
+        if ($sucesso) {
+            unset($_SESSION['reset_login']);
+            header('Location: index.php?controller=auth&method=senhaRedefinida');
+            exit;
+        }
+
+        $_SESSION['erro_nova_senha'] = 'Falha ao atualizar senha. Tente novamente.';
+        header('Location: index.php?controller=auth&method=novaSenha');
+        exit;
+    }
+
+    public function senhaRedefinida() {
+        return [];
+    }
+
+    // =================== CADASTRO ===================
+
+   public function cadastro() {
+    // Recupera dados e erros da sessÃ£o se existirem
+    $erros = $_SESSION['erros_cadastro'] ?? [];
+    $dados = $_SESSION['dados_cadastro'] ?? [];
+    $sucesso = $_SESSION['sucesso_cadastro'] ?? null;
+
+    unset($_SESSION['erros_cadastro'], $_SESSION['dados_cadastro'], $_SESSION['sucesso_cadastro']);
+
+    return [
+        'errosPrincipal' => $erros['principal'] ?? null,
+        'erroCheckbox' => $erros['aceita_termos'] ?? null,
+        'nomeVal' => htmlspecialchars($dados['nome'] ?? ''),
+        'apelidoVal' => htmlspecialchars($dados['apelido'] ?? ''),
+        'idadeVal' => htmlspecialchars($dados['idade'] ?? ''),
+        'loginVal' => htmlspecialchars($dados['login'] ?? ''),
+        'aceitaTermosChecked' => !empty($dados['aceitaTermos']) ? 'checked' : '',
+        'sucesso' => $sucesso
+    ];
+}
+
+
+    public function cadastroSubmit() {
+        $nome = trim($_POST['nome'] ?? '');
+        $apelido = trim($_POST['apelido'] ?? '');
+        $idade = trim($_POST['idade'] ?? '');
+        $login = trim($_POST['login'] ?? '');
+        $senha = $_POST['senha'] ?? '';
+        $repeteSenha = $_POST['repetir_senha'] ?? '';
+        $aceitaTermos = $_POST['aceita_termos'] ?? '';
+
+        $erroPrincipal = null;
+        $erroCheckbox = null;
+
+        // Verifica se login jÃ¡ existe - prioridade alta
+        if ($this->authModel->existsLogin($login)) {
+            $erroPrincipal = "Login jÃ¡ estÃ¡ em uso. Escolha outro.";
+        } else {
+            if ($nome === '' || $idade === '' || $login === '') {
+                $erroPrincipal = 'Todos os campos, exceto "apelido" sÃ£o de preenchimento obrigatÃ³rio.';
+            } elseif ($senha === '' || $repeteSenha === '') {
+                $erroPrincipal = 'Todos os campos, exceto "apelido" sÃ£o de preenchimento obrigatÃ³rio.';
+            } elseif (!filter_var($idade, FILTER_VALIDATE_INT)) {
+                $erroPrincipal = 'Idade invÃ¡lida.';
+            } elseif ($senha !== $repeteSenha) {
+                $erroPrincipal = 'As senhas nÃ£o conferem.';
+            }
+        }
+
+        if (!$aceitaTermos) {
+            $erroCheckbox = "VocÃª deve aceitar os termos para continuar.";
+        }
+
+            if ($erroPrincipal || $erroCheckbox) {
+        $_SESSION['erros_cadastro'] = [
+            'principal' => $erroPrincipal,
+            'aceita_termos' => $erroCheckbox
+        ];
+        $_SESSION['dados_cadastro'] = [
+            'nome' => $nome,
+            'apelido' => $apelido,
+            'idade' => $idade,
+            'login' => $login,
+            'aceitaTermos' => $aceitaTermos
+        ];
+        header("Location: index.php?controller=auth&method=cadastro");
+        exit;
+        }
+
+        $senhaHash = password_hash($senha, PASSWORD_DEFAULT);
+
+        $dadosUsuario = [
+            'nome' => $nome,
+            'apelido' => $apelido,
+            'idade' => (int)$idade,
+            'login' => $login,
+            'senhaHash' => $senhaHash
+        ];
+
+        $inseriu = $this->authModel->insertUser($dadosUsuario);
+
+        if ($inseriu) {
+            return ['sucesso' => 'Cadastro realizado com sucesso! FaÃ§a login a seguir.'];
+        } else {
+            return ['erro' => 'Falha ao cadastrar usuÃ¡rio.'];
+        }
+    }
+
+    // =================== LOGOUT ===================
+
+    public function logout() {
+        $_SESSION = [];
+        session_destroy();
+        header("Location: index.php?controller=auth&method=login");
+        exit;
+    }
+}
+
+
+=== controllers\definicoesController.php ===
+<?php
+
+class definicoesController
+{
+    public function definicoes()
+    {
+        // Aqui vocÃª pode futuramente carregar dados, se necessÃ¡rio.
+        $dadosParaView = []; // Inicialmente vazio
+
+        require_once __DIR__ . '/../views/definicoes/definicoes.php';
+    }
+
+    public function apagarConta()
+{
+    require_once __DIR__ . '/../views/definicoes/apagarConta.php';
+}
+
+}
+
+
+=== controllers\estatisticasController.php ===
+<?php
+class estatisticasController {
+
+    // MÃ©todo para exibir a pÃ¡gina de estatÃ­sticas
+    public function estatisticas() {
+        // Por enquanto, nÃ£o hÃ¡ dados, sÃ³ retorna array vazio para a view
+        return [];
+    }
+}
+
+
+=== controllers\homeController.php ===
+<?php
+require_once 'models/homeModel.php';
+
+class homeController {
+    public function index() {
+        
+        $login = $_SESSION['usuario_logado'];
+
+        $model = new homeModel();
+
+        // Busca valores numÃ©ricos (contagens)
+        $nomeParaExibir = $model->getNomeParaExibir($login);
+        $proximasTarefasQtd = $model->getQtdProximasTarefas($login);
+        $qtdConcluidasUlt30Dias = $model->getQtdConcluidasUlt30Dias($login);
+        $totalTarefas = $model->getTotalTarefas($login);
+        $tarefasAltaPrioridade = $model->getTarefasAltaPrioridade($login);
+        $tarefasPendentes = $model->getTarefasPendentes($login);
+        $tarefasAtrasadas = $model->getTarefasAtrasadas($login);
+
+        // Busca lista detalhada para cards de tabela
+        $proximasTarefasTabela = $model->getProximasTarefasTabela($login);
+        $tarefasAtrasadasTabela = $model->getTarefasAtrasadasTabela($login);
+        $todasTarefasTabela = $model->getTodasTarefasTabela($login);
+        $ultimasTarefasRealizadasTabela = $model->getUltimasTarefasRealizadasTabela($login);
+
+        // Monta array para passar Ã  view
+        $dadosParaView = [
+            'anoAtual' => date('Y'),
+            'nomeParaExibir' => $nomeParaExibir,
+            'proximasTarefasQtd' => $proximasTarefasQtd,
+            'qtdConcluidasUlt30Dias' => $qtdConcluidasUlt30Dias,
+            'totalTarefas' => $totalTarefas,
+            'tarefasAltaPrioridade' => $tarefasAltaPrioridade,
+            'tarefasPendentes' => $tarefasPendentes,
+            'tarefasAtrasadas' => $tarefasAtrasadas,
+            'proximasTarefasTabela' => $proximasTarefasTabela,
+            'tarefasAtrasadasTabela' => $tarefasAtrasadasTabela,
+            'todasTarefasTabela' => $todasTarefasTabela,
+            'ultimasTarefasRealizadasTabela' => $ultimasTarefasRealizadasTabela 
+        ];
+
+        include 'views/home/home.php';
+    }
+}
+
+
+=== controllers\tarefaController.php ===
+<?php
+require_once __DIR__ . '/../models/tarefaModel.php';  // Importa o model da tarefa para acesso aos dados
+require_once __DIR__ . '/authController.php';        // Importa controller de autenticaÃ§Ã£o (se necessÃ¡rio)
+
+class tarefaController {
+
+    // MÃ©todo para exibir o formulÃ¡rio de criaÃ§Ã£o de nova tarefa
+    public function novaTarefa() {
+        date_default_timezone_set('America/Sao_Paulo');
+        $dataPadrao = new DateTime();
+        $dataPadrao->modify('+5 minutes');
+
+        $erro = $_SESSION['erro'] ?? null;
+        $sucesso = $_SESSION['sucesso'] ?? null;
+
+        unset($_SESSION['erro'], $_SESSION['sucesso']);
+
+        return [
+            'dataVencimento'        => $dataPadrao->format('Y-m-d\TH:i'),
+            'dataMinima'            => $dataPadrao->format('Y-m-d\TH:i'),
+            'prioridadePadrao'      => 'mÃ©dia',
+            'descricaoConteudo'     => $_POST['descricao'] ?? '',
+            'descricaoPlaceholder'  => 'Digite aqui (mÃ¡x. 280 caracteres)',
+            'anoAtual'              => date('Y'),
+            'erro'                  => $erro,
+            'sucesso'               => $sucesso
+        ];
+    }
+
+    private function validarData($data) {
+        date_default_timezone_set('America/Sao_Paulo');
+        $dataSelecionada = strtotime($data);
+        $dataMinima = strtotime('+5 minutes');
+        return ($dataSelecionada >= $dataMinima);
+    }
+
+    public function salvar() {
+        $titulo      = trim($_POST['titulo'] ?? '');
+        $descricao   = trim($_POST['descricao'] ?? '');
+        $tipotarefa  = trim($_POST['tipotarefa'] ?? '');
+        $prioridade  = $_POST['prioridade'] ?? '';
+        $datafim     = $_POST['datafim'] ?? '';
+
+        if ($titulo === '') {
+            $_SESSION['erro'] = 'TÃ­tulo Ã© obrigatÃ³rio';
+            header("Location: index.php?controller=tarefa&method=novaTarefa");
+            exit;
+        }
+
+        if ($tipotarefa === '') {
+            $_SESSION['erro'] = 'Tipo da tarefa Ã© obrigatÃ³rio';
+            header("Location: index.php?controller=tarefa&method=novaTarefa");
+            exit;
+        }
+
+        if (!$this->validarData($datafim)) {
+            $_SESSION['erro'] = 'Data de vencimento invÃ¡lida. Deve ser no mÃ­nimo 5 minutos Ã  frente.';
+            header("Location: index.php?controller=tarefa&method=novaTarefa");
+            exit;
+        }
+
+        $tarefaModel = new tarefaModel();
+
+        $resultado = $tarefaModel->criarTarefa([
+            'titulo'     => $titulo,
+            'descricao'  => $descricao,
+            'tipotarefa' => $tipotarefa,
+            'prioridade' => $prioridade,
+            'datafim'    => $datafim,
+            'usu_id'     => $_SESSION['usuario_id'] ?? null
+        ]);
+
+        if ($resultado['sucesso']) {
+            $_SESSION['sucesso'] = 'Tarefa salva com sucesso!';
+            header("Location: index.php?controller=home&method=index");
+            exit;
+        } else {
+            $_SESSION['erro'] = $resultado['erro'] ?? 'Erro ao salvar a tarefa.';
+            header("Location: index.php?controller=tarefa&method=novaTarefa");
+            exit;
+        }
+    }
+
+    public function gestaoTarefa() {
+        $usu_id = $_SESSION['usuario_id'] ?? null;
+
+        if (!$usu_id) {
+            header("Location: index.php?controller=auth&method=login&expirado=1");
+            exit;
+        }
+
+        $tarefaModel = new tarefaModel();
+        $tarefas = $tarefaModel->listarTarefasPorUsuario($usu_id);
+
+        $sucesso = $_SESSION['sucesso'] ?? null;
+    unset($_SESSION['sucesso']);
+
+        return [
+            'tarefas' => $tarefas
+        ];
+    }
+
+    // MÃ©todo corrigido para exibir os detalhes da tarefa, com as chaves minÃºsculas
+    public function detalhesTarefa() {
+        $taskId = $_GET['task_id'] ?? null;
+
+        if (!$taskId) {
+            $_SESSION['erro'] = 'Tarefa nÃ£o identificada.';
+            header("Location: index.php?controller=tarefa&method=gestaoTarefa");
+            exit;
+        }
+
+        $tarefaModel = new tarefaModel();
+
+        $tarefa = $tarefaModel->buscarTarefaPorIdEUsuario($taskId, $_SESSION['usuario_id']);
+
+        if (!$tarefa) {
+            $_SESSION['erro'] = 'Tarefa nÃ£o encontrada ou acesso nÃ£o autorizado.';
+            header("Location: index.php?controller=tarefa&method=gestaoTarefa");
+            exit;
+        }
+
+        // Converte todas as chaves para minÃºsculas
+        $tarefa = array_change_key_case($tarefa, CASE_LOWER);
+
+        return [
+            'id'             => $tarefa['task_id'] ?? '',
+            'titulo'         => $tarefa['task_titulo'] ?? '',
+            'descricao'      => $tarefa['task_descricao'] ?? '',
+            'tipo'           => $tarefa['task_tipotarefa'] ?? '',
+            'prioridade'     => $tarefa['task_prioridade'] ?? '',
+            'dataVencimento' => $tarefa['task_datafim'] ?? '',
+            'dataMinima'     => date('Y-m-d\TH:i')
+        ];
+    }
+
+    public function editarTarefa() {
+    // Pega o ID da tarefa via parÃ¢metro GET 'task_id'
+    $taskId = $_GET['task_id'] ?? null;
+
+    // Se nÃ£o receber o ID, redireciona para a gestÃ£o de tarefas com erro
+    if (!$taskId) {
+        $_SESSION['erro'] = 'Tarefa nÃ£o identificada.';
+        header("Location: index.php?controller=tarefa&method=gestaoTarefa");
+        exit;
+    }
+
+    // Instancia o model para acessar os dados
+    $tarefaModel = new tarefaModel();
+
+    // Busca a tarefa pelo ID e pelo usuÃ¡rio logado para garantir que Ã© dele
+    $tarefa = $tarefaModel->buscarTarefaPorIdEUsuario($taskId, $_SESSION['usuario_id']);
+
+    // Se a tarefa nÃ£o existir ou nÃ£o pertencer ao usuÃ¡rio, redireciona com erro
+    if (!$tarefa) {
+        $_SESSION['erro'] = 'Tarefa nÃ£o encontrada ou acesso nÃ£o autorizado.';
+        header("Location: index.php?controller=tarefa&method=gestaoTarefa");
+        exit;
+    }
+
+    // Converte todas as chaves do array para minÃºsculas para facilitar o uso na view
+    $tarefa = array_change_key_case($tarefa, CASE_LOWER);
+
+    // Retorna um array com os dados da tarefa para serem usados na view de ediÃ§Ã£o
+    return [
+        'id'             => $tarefa['task_id'] ?? '',           // ID da tarefa
+        'titulo'         => $tarefa['task_titulo'] ?? '',       // TÃ­tulo da tarefa
+        'descricao'      => $tarefa['task_descricao'] ?? '',    // DescriÃ§Ã£o da tarefa
+        'tipo'           => $tarefa['task_tipotarefa'] ?? '',   // Tipo da tarefa
+        'prioridade'     => $tarefa['task_prioridade'] ?? '',   // Prioridade
+        'dataVencimento' => $tarefa['task_datafim'] ?? '',      // Data de vencimento
+        'dataMinima'     => date('Y-m-d\TH:i'),                 // Data mÃ­nima permitida para alteraÃ§Ã£o (agora)
+        'erro'           => $_SESSION['erro'] ?? null,          // Mensagem de erro, se houver
+        'sucesso'        => $_SESSION['sucesso'] ?? null        // Mensagem de sucesso, se houver
+    ];
+}
+
+public function atualizar() {
+    // Garante que o usuÃ¡rio esteja logado
+    $usu_id = $_SESSION['usuario_id'] ?? null;
+    if (!$usu_id) {
+        header("Location: index.php?controller=auth&method=login&expirado=1");
+        exit;
+    }
+
+    // Coleta dados do formulÃ¡rio
+    $taskId     = $_POST['task_id'] ?? null;
+    $titulo     = trim($_POST['titulo'] ?? '');
+    $tipotarefa = trim($_POST['tipotarefa'] ?? '');
+    $prioridade = $_POST['prioridade'] ?? '';
+    $datafim    = $_POST['datafim'] ?? '';
+    $descricao  = trim($_POST['descricao'] ?? '');
+
+    // ValidaÃ§Ã£o bÃ¡sica
+    if (!$taskId || $titulo === '' || $tipotarefa === '' || !$this->validarData($datafim)) {
+        $_SESSION['erro'] = 'Preencha todos os campos corretamente.';
+        header("Location: index.php?controller=tarefa&method=editarTarefa&task_id=$taskId");
+        exit;
+    }
+
+    // Define o status como 'pendente' durante a ediÃ§Ã£o (se nÃ£o for editado diretamente pelo usuÃ¡rio)
+    $status = 'pendente';
+
+    // Model
+    $tarefaModel = new tarefaModel();
+
+    // Atualiza no banco
+    $resultado = $tarefaModel->atualizarTarefa([
+        'task_id'     => $taskId,
+        'usu_id'      => $usu_id,
+        'titulo'      => $titulo,
+        'tipotarefa'  => $tipotarefa,
+        'prioridade'  => $prioridade,
+        'datafim'     => $datafim,
+        'descricao'   => $descricao,
+        'status'      => $status
+    ]);
+
+    // Verifica o resultado
+    if ($resultado['sucesso']) {
+        $_SESSION['sucesso'] = 'Tarefa atualizada com sucesso!';
+        header("Location: index.php?controller=tarefa&method=gestaoTarefa");
+        exit;
+    } else {
+        $_SESSION['erro'] = $resultado['erro'] ?? 'Erro ao atualizar a tarefa.';
+        header("Location: index.php?controller=tarefa&method=editarTarefa&task_id=$taskId");
+        exit;
+    }
+}
+
+public function apagarTarefa() {
+    $taskId = $_POST['task_id'] ?? $_GET['task_id'] ?? null;
+
+    if (!$taskId) {
+        $_SESSION['erro'] = 'Tarefa nÃ£o identificada.';
+        header("Location: index.php?controller=tarefa&method=gestaoTarefa");
+        exit;
+    }
+
+    $usu_id = $_SESSION['usuario_id'] ?? null;
+    if (!$usu_id) {
+        header("Location: index.php?controller=auth&method=login&expirado=1");
+        exit;
+    }
+
+    $tarefaModel = new tarefaModel();
+    $resultado = $tarefaModel->apagarTarefa($taskId, $usu_id);
+
+    if ($resultado['sucesso']) {
+        $_SESSION['sucesso'] = 'Tarefa apagada com sucesso!';
+    } else {
+        $_SESSION['erro'] = $resultado['erro'] ?? 'Erro ao apagar a tarefa.';
+    }
+
+    header("Location: index.php?controller=tarefa&method=gestaoTarefa");
+    exit;
+}
+
+
+}
+
+
+=== controllers\usuarioController.php ===
+<?php
+require_once __DIR__ . '/../models/usuarioModel.php';
+
+class usuarioController {
+    
+    public function meuPerfil()
+    {
+        if (!isset($_SESSION['usuario_id'])) {
+            header("Location: index.php?controller=auth&method=login");
+            exit;
+        }
+
+        require_once __DIR__ . '/../models/usuarioModel.php';
+
+        $usuarioModel = new usuarioModel();
+
+        $id = $_SESSION['usuario_id'];
+
+        $usuario = $usuarioModel->buscarUsuarioPorId($id);
+
+        if ($usuario) {
+            $dadosParaView = [
+                'id' => $usuario['USU_ID'],
+                'nome' => $usuario['USU_NOME'],
+                'apelido' => $usuario['USU_APELIDO'],
+                'idade' => $usuario['USU_IDADE']
+            ];
+
+            require_once __DIR__ . '/../views/usuario/meuPerfil.php';
+        } else {
+            echo "UsuÃ¡rio nÃ£o encontrado.";
+        }
+    }
+    
+    public function editarPerfil()
+    {
+        if (!isset($_SESSION['usuario_id'])) {
+            header("Location: index.php?controller=auth&method=login");
+            exit;
+        }
+
+        require_once __DIR__ . '/../models/usuarioModel.php';
+
+        $usuarioModel = new usuarioModel();
+
+        $id = $_SESSION['usuario_id'];
+
+        $usuario = $usuarioModel->buscarUsuarioPorId($id);
+
+        if ($usuario) {
+            $dadosParaView = [
+                'id' => $usuario['USU_ID'],
+                'nome' => $usuario['USU_NOME'],
+                'apelido' => $usuario['USU_APELIDO'],
+                'idade' => $usuario['USU_IDADE']
+            ];
+
+            require_once __DIR__ . '/../views/usuario/editarPerfil.php';
+        } else {
+            echo "UsuÃ¡rio nÃ£o encontrado.";
+        }
+    }
+
+    public function salvarEdicao()
+{
+    // Verifica se o usuÃ¡rio estÃ¡ logado
+    if (!isset($_SESSION['usuario_id'])) {
+        // Se nÃ£o estiver logado, redireciona para a pÃ¡gina de login
+        header("Location: index.php?controller=auth&method=login");
+        exit;
+    }
+
+    // ObtÃ©m os dados enviados via POST, utilizando trim para limpar espaÃ§os extras
+    $id = $_SESSION['usuario_id'];  // ID do usuÃ¡rio da sessÃ£o, para garantir seguranÃ§a
+    $nome = trim($_POST['nome'] ?? '');
+    $apelido = trim($_POST['apelido'] ?? '');
+    $idade = intval($_POST['idade'] ?? 0);
+
+    // ValidaÃ§Ãµes simples: nome nÃ£o pode estar vazio e idade deve ser maior que zero
+    if ($nome === '' || $idade <= 0) {
+        // Aqui vocÃª pode implementar redirecionamento com mensagem de erro, por enquanto exibe erro simples
+        echo "Nome Ã© obrigatÃ³rio e idade deve ser maior que zero.";
+        exit;
+    }
+
+    // Inclui o model para poder atualizar o usuÃ¡rio
+    require_once __DIR__ . '/../models/usuarioModel.php';
+    $usuarioModel = new usuarioModel();
+
+    // Chama o mÃ©todo para atualizar o usuÃ¡rio no banco de dados
+    $sucesso = $usuarioModel->atualizarUsuario($id, $nome, $apelido, $idade);
+
+    if ($sucesso) {
+        // Se atualizaÃ§Ã£o foi bem-sucedida, redireciona para a pÃ¡gina do perfil com parÃ¢metro de sucesso
+        header("Location: index.php?controller=usuario&method=meuPerfil&sucesso=1");
+        exit;
+    } else {
+        // Em caso de erro na atualizaÃ§Ã£o, mostra mensagem
+        echo "Erro ao atualizar os dados.";
+        exit;
+    }
+    }
+
+
+
+}
+
+
+=== models\authModel.php ===
+<?php
+class authModel {
+
+    private $conn;
+
+    public function __construct() {
+        // Cria conexÃ£o com o banco de dados
+        $this->conn = new mysqli("127.0.0.1", "root", "12345", "projeto_x", 3308);
+
+        // Verifica erro de conexÃ£o
+        if ($this->conn->connect_error) {
+            die("Erro de conexÃ£o: " . $this->conn->connect_error);
+        }
+    }
+
+    // FunÃ§Ã£o para buscar usuario por Login
+    public function findByLogin(string $login) {
+        // Prepara query SQL segura usando prepared statement
+        $stmt = $this->conn->prepare("SELECT usu_id, usu_nome, usu_apelido, usu_idade, usu_login, usu_senha FROM usuario WHERE usu_login = ?");
+        $stmt->bind_param("s", $login); // Substitui ? pelo login do usuÃ¡rio
+        $stmt->execute();
+        $result = $stmt->get_result(); // Executa e captura resultado
+        $usuario = $result->fetch_assoc(); // Retorna array associativo do usuÃ¡rio
+        $stmt->close(); // Fecha statement
+        return $usuario ?: null; // Retorna null se nÃ£o encontrar
+    }
+
+    public function existsLogin(string $login): bool {
+        $stmt = $this->conn->prepare("SELECT usu_id FROM usuario WHERE usu_login = ?");
+        $stmt->bind_param("s", $login);
+        $stmt->execute();
+        $stmt->store_result();
+        $existe = $stmt->num_rows > 0;
+        $stmt->close();
+        return $existe;
+    }
+
+    public function insertUser(array $dados): bool {
+        $stmt = $this->conn->prepare("INSERT INTO usuario (usu_nome, usu_apelido, usu_idade, usu_login, usu_senha) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param(
+            "ssiss",
+            $dados['nome'],
+            $dados['apelido'],
+            $dados['idade'],
+            $dados['login'],
+            $dados['senhaHash']
+        );
+        $executou = $stmt->execute();
+        $stmt->close();
+        return $executou;
+    }
+
+    public function updateSenha(string $login, string $senhaHash): bool {
+        $stmt = $this->conn->prepare("UPDATE usuario SET usu_senha = ? WHERE usu_login = ?");
+        $stmt->bind_param("ss", $senhaHash, $login);
+        $executou = $stmt->execute();
+        $stmt->close();
+        return $executou;
+    }
+
+    public function findByNomeIdadeLogin(string $nome, int $idade, string $login) {
+        $stmt = $this->conn->prepare("SELECT usu_login FROM usuario WHERE usu_nome = ? AND usu_idade = ? AND usu_login = ?");
+        $stmt->bind_param("sis", $nome, $idade, $login);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $usuario = $result->fetch_assoc();
+        $stmt->close();
+        return $usuario ?: null;
+    }
+
+    public function __destruct() {
+        $this->close(); // Fecha a conexÃ£o ao final da execuÃ§Ã£o
+    }
+
+    public function close() {
+        $this->conn->close();
+    }
+}
+
+
+=== models\estatisticasModel.php ===
+
+
+=== models\homeModel.php ===
+<?php
+class homeModel {
+
+    private $host = "127.0.0.1";
+    private $usuario = "root";
+    private $senha = "12345";
+    private $banco = "projeto_x";
+    private $porta = 3308;
+
+    private function conectar() {
+        $conn = new mysqli($this->host, $this->usuario, $this->senha, $this->banco, $this->porta);
+        if ($conn->connect_error) {
+            die("Erro na conexÃ£o: " . $conn->connect_error);
+        }
+        return $conn;
+    }
+
+    public function getNomeParaExibir($login) {
+        $conn = $this->conectar();
+        $stmt = $conn->prepare("SELECT USU_NOME, USU_APELIDO FROM USUARIO WHERE USU_LOGIN = ?");
+        $stmt->bind_param("s", $login);
+        $stmt->execute();
+        $stmt->bind_result($nome, $apelido);
+        $stmt->fetch();
+        $stmt->close();
+        $conn->close();
+        return !empty($apelido) ? $apelido : $nome;
+    }
+
+    // MÃ©todos que retornam nÃºmeros - views
+    public function getQtdProximasTarefas($login) {
+    // Conecta ao banco via mÃ©todo conectar()
+    $conn = $this->conectar();
+
+    $quantidade = 0;
+
+    // Consulta a view correta de tarefas pendentes para o usuÃ¡rio
+    $sql = "SELECT tarefas_pendentes FROM vw_tarefas_pendentes_por_usuario WHERE USU_ID = (SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?)";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+
+    $resultado = $stmt->get_result();
+
+    if ($resultado && $row = $resultado->fetch_assoc()) {
+        $quantidade = $row['tarefas_pendentes'];
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    return $quantidade;
+    }
+
+    public function getQtdConcluidasUlt30Dias($login) {
+    $conn = $this->conectar();
+    $quantidade = 0;
+
+    // Consulta o ID do usuÃ¡rio com base no login
+    $sqlUsuario = "SELECT USU_ID FROM usuario WHERE USU_LOGIN = ?";
+    $stmtUsuario = $conn->prepare($sqlUsuario);
+    $stmtUsuario->bind_param("s", $login);
+    $stmtUsuario->execute();
+    $resultadoUsuario = $stmtUsuario->get_result();
+
+    if ($rowUsuario = $resultadoUsuario->fetch_assoc()) {
+        $usuId = $rowUsuario['USU_ID'];
+
+        // Consulta a view que jÃ¡ traz o total de tarefas concluÃ­das nos Ãºltimos 30 dias
+        $sqlView = "SELECT tarefas_concluidas_ult_30dias FROM vw_tarefas_concluidas_ult_30dias WHERE USU_ID = ?";
+        $stmtView = $conn->prepare($sqlView);
+        $stmtView->bind_param("i", $usuId);
+        $stmtView->execute();
+        $resultadoView = $stmtView->get_result();
+
+        if ($rowView = $resultadoView->fetch_assoc()) {
+            $quantidade = $rowView['tarefas_concluidas_ult_30dias'];
+        }
+
+        $stmtView->close();
+    }
+
+    $stmtUsuario->close();
+    $conn->close();
+
+    return $quantidade;
+    }
+
+    public function getTotalTarefas($login) {
+    $conn = $this->conectar();
+    $total = 0;
+
+    $sql = "
+        SELECT COUNT(*) AS total
+        FROM TAREFAS
+        WHERE USU_ID = (
+            SELECT USU_ID FROM usuario WHERE USU_LOGIN = ?
+        )
+    ";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+    
+    if ($row = $resultado->fetch_assoc()) {
+        $total = $row['total'];
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    return $total;
+    }
+
+    public function getTarefasAltaPrioridade($login) {
+    $conn = $this->conectar();
+
+    // Recupera o USU_ID pelo login
+    $stmt = $conn->prepare("SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?");
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+    $stmt->bind_result($usu_id);
+    $stmt->fetch();
+    $stmt->close();
+
+    $tarefasAltaPrioridade = 0;
+
+    // Consulta a view para contar tarefas com prioridade 'alta'
+    $sql = "SELECT tarefas_alta_prioridade FROM vw_tarefas_alta_prioridade_por_usuario WHERE USU_ID = ?";
+    $stmt2 = $conn->prepare($sql);
+    $stmt2->bind_param("i", $usu_id);
+    $stmt2->execute();
+    $stmt2->bind_result($tarefasAltaPrioridade);
+    $stmt2->fetch();
+
+    $stmt2->close();
+    $conn->close();
+
+    return $tarefasAltaPrioridade ?: 0; // Se null, retorna 0
+    }
+
+    public function getTarefasPendentes($login) {
+    $conn = $this->conectar();
+
+    // Buscar ID do usuÃ¡rio pelo login
+    $sqlId = "SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?";
+    $stmtId = $conn->prepare($sqlId);
+    $stmtId->bind_param("s", $login);
+    $stmtId->execute();
+    $resultId = $stmtId->get_result();
+
+    if ($row = $resultId->fetch_assoc()) {
+        $usu_id = $row['USU_ID'];
+
+        // Agora consulta a view com o ID do usuÃ¡rio
+        $sql = "SELECT tarefas_pendentes FROM vw_tarefas_pendentes_por_usuario WHERE USU_ID = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $usu_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($row = $result->fetch_assoc()) {
+            return $row['tarefas_pendentes'];
+        }
+    }
+
+    return 0;
+    }
+
+    public function getTarefasAtrasadas($login) {
+    $conn = $this->conectar();
+
+    // Primeiro, pega o USU_ID do usuÃ¡rio pelo login
+    $stmtUsu = $conn->prepare("SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?");
+    $stmtUsu->bind_param("s", $login);
+    $stmtUsu->execute();
+    $stmtUsu->bind_result($usu_id);
+    $stmtUsu->fetch();
+    $stmtUsu->close();
+
+    $quantidade = 0;
+
+    // Busca na view a quantidade de tarefas atrasadas
+    $stmt = $conn->prepare("SELECT tarefas_atrasadas FROM vw_tarefas_atrasadas_por_usuario WHERE USU_ID = ?");
+    $stmt->bind_param("i", $usu_id);
+    $stmt->execute();
+    $stmt->bind_result($quantidade);
+    $stmt->fetch();
+    $stmt->close();
+
+    $conn->close();
+
+    return $quantidade ?? 0;
+    }
+
+    // MÃ©todo que retorna array detalhado para tabela
+    public function getProximasTarefasTabela($login) {
+        $conn = $this->conectar();
+        $tarefas = [];
+        $sql = "
+            SELECT 
+                TASK_ID, TASK_TITULO, TASK_TIPOTAREFA, TASK_PRIORIDADE, TASK_DATAINICIO, TASK_DATAFIM, TASK_STATUS
+            FROM TAREFAS
+            WHERE USU_ID = (
+                SELECT USU_ID FROM usuario WHERE USU_LOGIN = ?
+            )
+            AND TASK_DATAFIM >= CURDATE()
+            AND TASK_STATUS = 'PENDENTE'
+            ORDER BY TASK_DATAFIM ASC
+            LIMIT 10
+        ";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $login);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
+        while ($row = $resultado->fetch_assoc()) {
+            $tarefas[] = $row;
+        }
+        $stmt->close();
+        $conn->close();
+        return $tarefas;
+    }
+
+    public function getTarefasAtrasadasTabela($login) {
+    $conn = $this->conectar();
+
+    // Primeiro, recupera o USU_ID a partir do login
+    $stmt = $conn->prepare("SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?");
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+    $stmt->bind_result($usu_id);
+    $stmt->fetch();
+    $stmt->close();
+
+    // Agora, chama a procedure que retorna as tarefas atrasadas
+    $tarefas = [];
+
+    $call = $conn->prepare("CALL ObterTarefasAtrasadas(?)");
+    $call->bind_param("i", $usu_id);
+    $call->execute();
+    $resultado = $call->get_result();
+
+    while ($row = $resultado->fetch_assoc()) {
+        $tarefas[] = $row;
+    }
+
+    $call->close();
+    $conn->close();
+
+    return $tarefas;
+    }
+
+    public function getTodasTarefasTabela($login) {
+    $conn = $this->conectar();
+
+    // Busca o ID do usuÃ¡rio a partir do login
+    $stmt = $conn->prepare("SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?");
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+    $stmt->bind_result($usu_id);
+    $stmt->fetch();
+    $stmt->close();
+
+    // Busca todas as tarefas do usuÃ¡rio
+    $tarefas = [];
+
+    $sql = "
+        SELECT 
+            TASK_ID,
+            TASK_TITULO,
+            TASK_TIPOTAREFA,
+            TASK_PRIORIDADE,
+            TASK_DATAINICIO,
+            TASK_DATAFIM,
+            TASK_STATUS
+        FROM TAREFAS
+        WHERE USU_ID = ?
+        ORDER BY TASK_DATAINICIO DESC
+        LIMIT 20
+    ";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $usu_id);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+
+    while ($row = $resultado->fetch_assoc()) {
+        $tarefas[] = $row;
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    return $tarefas;
+    }
+
+    public function getUltimasTarefasRealizadasTabela($login) {
+    $conn = $this->conectar();
+
+    // Busca o USU_ID pelo login
+    $stmt = $conn->prepare("SELECT USU_ID FROM USUARIO WHERE USU_LOGIN = ?");
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+    $stmt->bind_result($usu_id);
+    $stmt->fetch();
+    $stmt->close();
+
+    $tarefas = [];
+
+    // Busca as Ãºltimas tarefas com status CONCLUÃDA, ordena pela data de realizaÃ§Ã£o desc (mais recentes primeiro), limite 10
+    $sql = "
+        SELECT TASK_ID, TASK_TITULO, TASK_TIPOTAREFA, TASK_PRIORIDADE, TASK_DATAINICIO, TASK_DATAFIM, TASK_DATAREALIZACAO, TASK_STATUS
+        FROM TAREFAS
+        WHERE USU_ID = ? AND TASK_STATUS = 'CONCLUÃDA'
+        ORDER BY TASK_DATAREALIZACAO DESC
+        LIMIT 10
+    ";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $usu_id);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+
+    while ($row = $resultado->fetch_assoc()) {
+        $tarefas[] = $row;
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    return $tarefas;
+}
+
+
+
+}
+
+
+=== models\tarefaModel.php ===
+<?php
+class tarefaModel {
+    private $pdo;
+
+    public function __construct() {
+        $this->conectarBanco();
+    }
+
+    // Conecta ao banco MySQL usando PDO com configuraÃ§Ãµes corretas e tratamento de exceÃ§Ã£o
+    private function conectarBanco() {
+        try {
+            $this->pdo = new PDO(
+                'mysql:host=127.0.0.1;port=3308;dbname=projeto_x',
+                'root',
+                '12345',
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,        // LanÃ§a exceÃ§Ãµes em erros SQL
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC   // Retorna arrays associativos nas consultas
+                ]
+            );
+        } catch (PDOException $e) {
+            die("Erro de conexÃ£o: " . $e->getMessage());             // Finaliza a execuÃ§Ã£o se nÃ£o conectar
+        }
+    }
+
+    // Insere nova tarefa no banco com os dados recebidos do controller
+    public function criarTarefa(array $dados): array {
+        try {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO TAREFAS (
+                    TASK_TITULO,
+                    TASK_DESCRICAO,
+                    TASK_TIPOTAREFA,
+                    TASK_PRIORIDADE,
+                    TASK_DATAFIM,
+                    USU_ID
+                ) VALUES (
+                    :titulo,
+                    :descricao,
+                    :tipotarefa,
+                    :prioridade,
+                    :datafim,
+                    :usu_id
+                )
+            ");
+
+            // Executa a query com os dados passados
+            $stmt->execute([
+                ':titulo'      => $dados['titulo'],
+                ':descricao'   => $dados['descricao'] ?? null,
+                ':tipotarefa'  => $dados['tipotarefa'],
+                ':prioridade'  => $dados['prioridade'] ?? 'mÃ©dia', // padrÃ£o em minÃºsculo para casar com a view
+                ':datafim'     => $dados['datafim'] ?? null,
+                ':usu_id'      => $dados['usu_id']
+            ]);
+
+            // Retorna sucesso com o ID da tarefa criada
+            return [
+                'sucesso' => true,
+                'id' => $this->pdo->lastInsertId()
+            ];
+        } catch (PDOException $e) {
+            // Em caso de erro retorna array com sucesso=false e mensagem de erro
+            return [
+                'sucesso' => false,
+                'erro' => "Erro ao criar tarefa: " . $e->getMessage()
+            ];
+        }
+    }
+
+    public function listarTarefasPorUsuario(int $usu_id): array {
+        try {
+            // Prepara a query para buscar os campos desejados da tabela TAREFAS
+            $stmt = $this->pdo->prepare("
+                SELECT 
+                    TASK_ID,           
+                    TASK_TITULO,       
+                    TASK_TIPOTAREFA,   
+                    TASK_DATAFIM,      
+                    TASK_PRIORIDADE,   
+                    TASK_STATUS        
+                FROM TAREFAS
+                WHERE USU_ID = :usu_id    
+                ORDER BY TASK_DATAFIM ASC
+            ");
+
+            // Executa a query substituindo :usu_id pelo valor do usuÃ¡rio
+            $stmt->execute([':usu_id' => $usu_id]);
+
+            // Retorna todas as linhas resultantes como array associativo
+            return $stmt->fetchAll();
+
+        } catch (PDOException $e) {
+            // Em caso de erro, retorna array vazio para evitar quebra da aplicaÃ§Ã£o
+            return [];
+        }
+    }
+
+    /**
+     * Busca uma tarefa pelo ID e pelo ID do usuÃ¡rio.
+     * Garante que o usuÃ¡rio sÃ³ acesse suas prÃ³prias tarefas.
+     *
+     * @param int $taskId ID da tarefa
+     * @param int $usuarioId ID do usuÃ¡rio logado
+     * @return array|null Retorna os dados da tarefa ou null se nÃ£o encontrar
+     */
+   public function buscarTarefaPorIdEUsuario($taskId, $usuarioId) {
+    try {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM TAREFAS 
+            WHERE TASK_ID = :taskId AND USU_ID = :usuarioId
+            LIMIT 1
+        ");
+        $stmt->execute([
+            ':taskId' => $taskId,
+            ':usuarioId' => $usuarioId
+        ]);
+
+        // Busca o resultado como array associativo para facilitar o uso na view
+        $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $resultado ?: null;
+
+    } catch (PDOException $e) {
+        // Aqui pode registrar o erro num log se desejar
+        return null;
+    }
+}
+
+public function atualizarTarefa(array $dados): array {
+    try {
+        // Prepara o SQL para atualizar os campos da tarefa
+        $sql = "
+            UPDATE TAREFAS
+            SET 
+                TASK_TITULO     = :titulo,
+                TASK_TIPOTAREFA = :tipotarefa,
+                TASK_PRIORIDADE = :prioridade,
+                TASK_DATAFIM    = :datafim,
+                TASK_DESCRICAO  = :descricao
+            WHERE TASK_ID = :task_id AND USU_ID = :usu_id
+        ";
+
+        $stmt = $this->pdo->prepare($sql);
+
+        // Executa a atualizaÃ§Ã£o com os dados fornecidos
+        $stmt->execute([
+            ':titulo'     => $dados['titulo'],
+            ':tipotarefa' => $dados['tipotarefa'],
+            ':prioridade' => $dados['prioridade'],
+            ':datafim'    => $dados['datafim'],
+            ':descricao'  => $dados['descricao'],
+            ':task_id'    => $dados['task_id'],
+            ':usu_id'     => $dados['usu_id']
+        ]);
+
+        // Verifica se alguma linha foi afetada
+        if ($stmt->rowCount() > 0) {
+            return ['sucesso' => true];
+        } else {
+            return ['sucesso' => false, 'erro' => 'Nenhuma alteraÃ§Ã£o feita ou tarefa nÃ£o encontrada.'];
+        }
+
+    } catch (PDOException $e) {
+        return ['sucesso' => false, 'erro' => 'Erro ao atualizar tarefa: ' . $e->getMessage()];
+    }
+}
+
+public function apagarTarefa($taskId, $usu_id): array {
+    try {
+        $sql = "DELETE FROM TAREFAS WHERE TASK_ID = :task_id AND USU_ID = :usu_id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':task_id', $taskId, PDO::PARAM_INT);
+        $stmt->bindParam(':usu_id', $usu_id, PDO::PARAM_INT);
+        $stmt->execute();
+
+        if ($stmt->rowCount() > 0) {
+            return ['sucesso' => true];
+        } else {
+            return ['sucesso' => false, 'erro' => 'Tarefa nÃ£o encontrada ou nÃ£o pertence ao usuÃ¡rio.'];
+        }
+    } catch (PDOException $e) {
+        return ['sucesso' => false, 'erro' => 'Erro ao apagar tarefa: ' . $e->getMessage()];
+    }
+}
+
+}
+
+
+=== models\tarefaModel_legado.php ===
+<?php
+class tarefaModel {
+    private $pdo;
+
+    public function __construct() {
+        $this->conectarBanco();
+    }
+
+    // Conecta ao banco MySQL usando PDO com configuraÃ§Ãµes corretas e tratamento de exceÃ§Ã£o
+    private function conectarBanco() {
+        try {
+            $this->pdo = new PDO(
+                'mysql:host=127.0.0.1;port=3308;dbname=projeto_x',
+                'root',
+                '12345',
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,        // LanÃ§a exceÃ§Ãµes em erros SQL
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC   // Retorna arrays associativos nas consultas
+                ]
+            );
+        } catch (PDOException $e) {
+            die("Erro de conexÃ£o: " . $e->getMessage());             // Finaliza a execuÃ§Ã£o se nÃ£o conectar
+        }
+    }
+
+    // Insere nova tarefa no banco com os dados recebidos do controller
+    public function criarTarefa(array $dados): array {
+        try {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO TAREFAS (
+                    TASK_TITULO,
+                    TASK_DESCRICAO,
+                    TASK_TIPOTAREFA,
+                    TASK_PRIORIDADE,
+                    TASK_DATAFIM,
+                    USU_ID
+                ) VALUES (
+                    :titulo,
+                    :descricao,
+                    :tipotarefa,
+                    :prioridade,
+                    :datafim,
+                    :usu_id
+                )
+            ");
+
+            // Executa a query com os dados passados
+            $stmt->execute([
+                ':titulo'      => $dados['titulo'],
+                ':descricao'   => $dados['descricao'] ?? null,
+                ':tipotarefa'  => $dados['tipotarefa'],
+                ':prioridade'  => $dados['prioridade'] ?? 'mÃ©dia', // padrÃ£o em minÃºsculo para casar com a view
+                ':datafim'     => $dados['datafim'] ?? null,
+                ':usu_id'      => $dados['usu_id']
+            ]);
+
+            // Retorna sucesso com o ID da tarefa criada
+            return [
+                'sucesso' => true,
+                'id' => $this->pdo->lastInsertId()
+            ];
+        } catch (PDOException $e) {
+            // Em caso de erro retorna array com sucesso=false e mensagem de erro
+            return [
+                'sucesso' => false,
+                'erro' => "Erro ao criar tarefa: " . $e->getMessage()
+            ];
+        }
+    }
+
+    public function listarTarefasPorUsuario(int $usu_id): array {
+        try {
+            // Prepara a query para buscar os campos desejados da tabela TAREFAS
+            $stmt = $this->pdo->prepare("
+                SELECT 
+                    TASK_ID,           
+                    TASK_TITULO,       
+                    TASK_TIPOTAREFA,   
+                    TASK_DATAFIM,      
+                    TASK_PRIORIDADE,   
+                    TASK_STATUS        
+                FROM TAREFAS
+                WHERE USU_ID = :usu_id    
+                ORDER BY TASK_DATAFIM ASC
+            ");
+
+            // Executa a query substituindo :usu_id pelo valor do usuÃ¡rio
+            $stmt->execute([':usu_id' => $usu_id]);
+
+            // Retorna todas as linhas resultantes como array associativo
+            return $stmt->fetchAll();
+
+        } catch (PDOException $e) {
+            // Em caso de erro, retorna array vazio para evitar quebra da aplicaÃ§Ã£o
+            return [];
+        }
+    }
+
+    /**
+     * Busca uma tarefa pelo ID e pelo ID do usuÃ¡rio.
+     * Garante que o usuÃ¡rio sÃ³ acesse suas prÃ³prias tarefas.
+     *
+     * @param int $taskId ID da tarefa
+     * @param int $usuarioId ID do usuÃ¡rio logado
+     * @return array|null Retorna os dados da tarefa ou null se nÃ£o encontrar
+     */
+   public function buscarTarefaPorIdEUsuario($taskId, $usuarioId) {
+    try {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM TAREFAS 
+            WHERE TASK_ID = :taskId AND USU_ID = :usuarioId
+            LIMIT 1
+        ");
+        $stmt->execute([
+            ':taskId' => $taskId,
+            ':usuarioId' => $usuarioId
+        ]);
+
+        // Busca o resultado como array associativo para facilitar o uso na view
+        $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $resultado ?: null;
+
+    } catch (PDOException $e) {
+        // Aqui pode registrar o erro num log se desejar
+        return null;
+    }
+}
+
+public function atualizarTarefa(array $dados): array {
+    try {
+        // Prepara o SQL para atualizar os campos da tarefa
+        $sql = "
+            UPDATE TAREFAS
+            SET 
+                TASK_TITULO     = :titulo,
+                TASK_TIPOTAREFA = :tipotarefa,
+                TASK_PRIORIDADE = :prioridade,
+                TASK_DATAFIM    = :datafim,
+                TASK_DESCRICAO  = :descricao
+            WHERE TASK_ID = :task_id AND USU_ID = :usu_id
+        ";
+
+        $stmt = $this->pdo->prepare($sql);
+
+        // Executa a atualizaÃ§Ã£o com os dados fornecidos
+        $stmt->execute([
+            ':titulo'     => $dados['titulo'],
+            ':tipotarefa' => $dados['tipotarefa'],
+            ':prioridade' => $dados['prioridade'],
+            ':datafim'    => $dados['datafim'],
+            ':descricao'  => $dados['descricao'],
+            ':task_id'    => $dados['task_id'],
+            ':usu_id'     => $dados['usu_id']
+        ]);
+
+        // Verifica se alguma linha foi afetada
+        if ($stmt->rowCount() > 0) {
+            return ['sucesso' => true];
+        } else {
+            return ['sucesso' => false, 'erro' => 'Nenhuma alteraÃ§Ã£o feita ou tarefa nÃ£o encontrada.'];
+        }
+
+    } catch (PDOException $e) {
+        return ['sucesso' => false, 'erro' => 'Erro ao atualizar tarefa: ' . $e->getMessage()];
+    }
+}
+
+
+
+}
+
+
+=== models\usuarioModel.php ===
+<?php
+
+class usuarioModel
+{
+    private $conn;
+
+    public function __construct()
+    {
+        $this->conn = new mysqli("127.0.0.1", "root", "12345", "projeto_x", 3308);
+        if ($this->conn->connect_error) {
+            die("Erro de conexÃ£o: " . $this->conn->connect_error);
+        }
+    }
+
+    public function buscarUsuarioPorId($id)
+{
+    $sql = "SELECT USU_ID, USU_NOME, USU_APELIDO, USU_IDADE FROM usuario WHERE USU_ID = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+
+    $usuario = $resultado->fetch_assoc();
+
+    $stmt->close();
+    // Remova a linha $this->conn->close(); daqui
+
+    return $usuario;
+}
+
+public function atualizarUsuario($id, $nome, $apelido, $idade)
+{
+    // Prepara a query para atualizar o usuÃ¡rio pelo ID
+    $sql = "UPDATE usuario SET USU_NOME = ?, USU_APELIDO = ?, USU_IDADE = ? WHERE USU_ID = ?";
+    
+    $stmt = $this->conn->prepare($sql);
+    if (!$stmt) {
+        die("Erro na preparaÃ§Ã£o da query: " . $this->conn->error);
+    }
+    
+    // Vincula os parÃ¢metros (string, string, int, int)
+    $stmt->bind_param("ssii", $nome, $apelido, $idade, $id);
+    
+    // Executa a query
+    $resultado = $stmt->execute();
+    
+    // Fecha o statement para liberar recursos
+    $stmt->close();
+    
+    // Retorna true em caso de sucesso, false em caso de falha
+    return $resultado;
+}
+
+
+
+}
+
+
+
+=== public\css\style.css ===
+/*================== geral ==================*/
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+/* Cor de fundo do site e fonte*/
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #dededed2;
+    margin-right: 0px;
+}
+
+
+/*================== menu lateral ==================*/
+
+/* prototipo de menu lateral customizado */
+.menu-lateral-msn {
+    position: fixed;
+    left: 20px;
+    top: 40%;
+    transform: translateY(-50%);
+    width: 150px;
+    padding: 20px;
+    border: 1px solid black;
+}
+/* menu lateral padrÃ£o */
+.menu-lateral-default {
+    position: fixed;
+    left: 20px;
+    top: 40%;
+    transform: translateY(-50%);
+    width: 150px;
+    padding: 20px;
+    border: 1px solid #E0E0E0;
+    background-color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 1;
+}
+/* Objetos do menu lateral padrÃ£o */
+.menu-lateral-default ul {
+   list-style: none; padding: 0;
+}
+
+/* Menu lateral retratil */
+.menu-lateral-slide {
+    
+    position: fixed;
+    top: 0%;
+    left:0%;
+    height: 100%;
+    width: 240px;
+    padding: 0px;
+    background-color: #FFFFFF;
+    box-shadow: 3px 0 0 #23007c2f;
+    transition: width 0.5s ease;
+    overflow: visible;
+    z-index: 1;
+}
+
+.menu-lateral-slide a span {
+  transition: opacity 0.9s ease;
+}
+
+.menu-lateral-slide.retraido {
+  width: 80px; /* reduz a largura */
+  height: 100%;
+  padding: 0px;
+}
+
+.menu-lateral-slide.retraido a span {
+  display: none;
+}
+
+/* MantÃ©m o texto oculto enquanto a barra ainda estÃ¡ animando para expandir */
+.menu-lateral-slide.expandindo a span {
+  display: none;
+}
+
+/* Aba do menu: agora Ã© filha do prÃ³prio .menu-lateral-slide,
+   por isso acompanha a largura dele sem precisar de transiÃ§Ã£o prÃ³pria
+   e sem risco de dessincronia. */
+.menu-tab {
+    position: absolute;
+    top: 10px;
+    right: -38px;
+    width: 34px;
+    height: 36px;
+    background-color: #FFFFFF;
+    border: 1px solid #b0b0b0;
+    border-left: none;
+    border-radius: 0 10px 10px 0;
+    box-shadow: 3px 0 6px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    z-index: -1;
+}
+
+.menu-tab:hover {
+    background-color: #23007c2f;
+}
+
+.menu-lateral-slide .menu-tab i {
+    position: absolute;
+    font-size: 26px;
+    font-weight: bold;
+    color: #013a73;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.menu-tab .icone-expandido {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+}
+
+.menu-tab .icone-retraido {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+}
+
+.menu-lateral-slide.retraido .menu-tab .icone-expandido {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.5);
+}
+
+.menu-lateral-slide.retraido .menu-tab .icone-retraido {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+}
+
+.menu-lateral-slide ul {
+   list-style-type: none; 
+   padding: 2px;
+   font-size: 16px;
+   
+}
+
+.menu-lateral-slide li {
+    padding: 15px 20px;
+    transition: background-color 1.0s, font-weight 0.3s, padding 0.4s;
+    
+}
+
+.menu-lateral-slide li:hover {
+    background-color: #002fff42;
+    font-weight: bold;
+    padding: 15px 5px;
+    box-shadow: 3px 0 0 #2f00a55a;
+    
+}
+
+/*.logoff-section div:hover {
+  background-color: #ff0000b8;
+  
+ }
+*/
+
+.menu-lateral-slide a {
+  text-decoration: none;
+  color: inherit;
+  line-height: 30px;
+  display: flex;
+  gap: 18px;
+}
+
+.menu-lateral-slide i {
+    font-size: 35px;
+    color: #013a73;
+    
+    
+   
+}
+
+.titulo-menu {
+    display: flex;
+    flex-direction: row;
+    font-size: 20px;
+    color: #013a73;
+    overflow: hidden;
+    box-sizing: border-box;
+    height: 116px;
+    padding-left: 0px;
+    padding-right: 0px;
+    padding-top: 20px;
+    padding-bottom: 35px;
+    justify-content: space-between;
+    align-items: center;
+    
+}
+
+.logo-completa,
+.logo-reduzida {
+    flex-shrink: 0;
+}
+
+.logo-completa { width: 240px; }
+.logo-reduzida { width: 80px; display: none; }
+
+.logo-completa img,
+.logo-reduzida img {
+    display: block;
+    margin: 0 auto;
+}
+
+.logo-completa img,
+.logo-reduzida img {
+    display: block;
+    margin: 0 auto;
+    height: 40px;
+    width: auto;
+}
+
+.menu-lateral-slide.retraido .logo-completa { display: none; }
+.menu-lateral-slide.retraido .logo-reduzida { display: block; }
+
+/*================== cards ==================*/
+
+/*Estrutura padrÃ£o do tipo card*/
+.card {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 2px solid #c0c0c0;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    margin-left: 250px;
+    margin-bottom: 20px;
+    margin-right: 220px;
+    padding: 20px;
+}
+/* Estrutura card login */
+.card-login {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid #d0d0d0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 40px 60px;
+    margin: 60px auto;
+    max-width: 400px;
+}
+
+/* Fundo exclusivo da tela de login */
+.login-bg-stripe {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 35%;
+    height: 100%;
+    background-color: #3a3a3a;
+    z-index: 0;
+}
+
+/* Container que posiciona o card de login na tela */
+.login-wrapper {
+    position: fixed;
+    top: 50%;
+    left: 35%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+}
+
+.logo-login {
+    display: block;
+    margin: 0 auto 15px auto;
+    height: 50px;
+}
+
+/* Estrutura card headers */
+.card-headers {
+    margin-top: -15px;
+    margin-bottom: 20px;
+    padding-top: 20px;
+    padding-bottom: 30px;
+    padding-left: 270px;
+    padding-right: 250px;
+    background-color: #FFFFFF;
+    width: 100%vw;
+    height: 75px;
+    border: 2px solid #c0c0c0;
+    box-shadow: 0 3px 0px rgba(0,0,0,0.1);
+
+}
+/* Estrutura para o contÃªiner dos cards de views numericas da home */
+.card-views-home-father {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-left: 250px;
+  margin-right: 220px;
+  
+}
+/*cards de views numericas da home */
+.card-views-home {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid #d0d0d0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    padding: 30px;
+    width: 100px;
+    height: 100px;
+    
+}
+
+.card-static{
+    position: relative;
+    margin: 20px 250px 80px 220px;
+    box-sizing: border-box;
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid #d0d0d0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 40px;
+
+}
+/* Titulo do card home */
+.titulo-secao {
+    font-size: 18px;
+    font-weight: bold;
+       /* mantÃ©m largura e posicionamento originais */
+}
+
+.card-interativo {
+    margin: 20px 220px 20px 250px;
+    box-sizing: border-box;
+    background-color: #ceffdb;
+    border-radius: 8px;
+    border: 3px solid #00d6529d;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 30px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #333333d4;
+}
+
+/*================== formulÃ¡rios ==================*/
+
+/* Estilo campos de formulÃ¡rio */
+input, textarea, select {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid rgb(165, 165, 165);
+   
+    padding: 12px;
+    margin-bottom: 16px;
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+}
+
+
+/*================== botÃµes gerais ==================*/
+
+/* Estilo visual botÃµes */
+button {
+    border-radius: 6px;
+    padding: 10px 16px;
+    background-color: #013a73; /* azul padrÃ£o do LinkedIn, opcional */
+    color: white;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+/* Estilos visuais botÃ£o voltar */
+.button-voltar {
+    position: absolute;
+    top: 40px;
+    left: 20px;
+}
+
+.button-voltar.voltar {
+    
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+}
+/* Estilo visual botÃµes de aba em settings */
+.button-aba-settings{
+flex: 1;
+padding: 10px;
+border: none;
+font-weight: bold;
+cursor: pointer;
+border-bottom: 2px solid black;
+background-color: white;
+}
+
+
+/*================== Breadcrumbs ==================*/
+
+/* Estilo visual Breadcrumbs */
+.breadcrumbs {
+    margin-left: 250px;
+    margin-right: 220px;
+    margin-top: 40px;
+    margin-bottom: 10px;
+}
+/* Tela atual no breadcrumb - sem link*/
+.breadcrumbs-p {
+  font-size: 14px;
+  color: #555;
+}
+/* Telas anteriores no breadcrumb - com link*/
+.breadcrumbs-a {
+  text-decoration: none;
+  color: #555;
+}
+
+
+/*================== Footer ==================*/
+
+/* Footer fixo todas as paginas exceto modais */
+.footer {
+    position: fixed;
+    padding: 0px 0px;
+    bottom: -1px;
+    width: 100%;
+    background-color: #ffffff;
+    border: 1px solid #d0d0d0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    
+}
+
+.footer p {
+    text-align: right;
+    margin-right: 100px;
+    color: #000000;
+    font-size: 12px;
+    font-weight: bold;  
+}
+
+
+/*================== Tabelas ==================*/
+
+/* Tabela de tarefas */
+.tabela-tarefas {
+  border-collapse: collapse;
+  width: 100%;
+  
+}
+
+/* Table headers */
+.tabela-tarefas th {
+  background-color: #e0e0e0;
+  padding: 12px;
+  text-align: left;
+  border-bottom: 2px solid #ddd;
+  font-weight: bold;
+}
+
+/* Table cells */
+.tabela-tarefas td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+/* Table rows on hover */
+.tabela-tarefas tr:hover {
+  background-color: #fafafa;
+}
+/* Linhas (rows) Ã­mpares da tabela */
+.tabela-tarefas tbody tr:nth-child(odd) {
+  background-color: #ffffff; /* fundo claro */
+}
+/* Linhas (rows) pares da tabela */
+.tabela-tarefas tbody tr:nth-child(even) {
+  background-color: #ebebeb; /* fundo mais escuro */
+}
+/* Recurso visual para tabela vazia */
+.sem-tarefas {
+  text-align: center;
+  font-style: italic;
+  color: #777;
+}
+
+.sem-tarefas-info{
+  margin: 0 220px 50px 220px;
+  background-color: #f7f7f7;
+  padding: 12px;
+  text-align: left;
+  border-bottom: 2px solid #ddd;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+
+}
+
+
+/*================== Objetos de tabela ==================*/
+
+/* Status */
+.status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.status-concluÃ­da { background-color: #5cb85c; }
+.status-atrasada { background-color: #f04e4e; }
+.status-pendente { background-color: #d69200; }
+.status-andamento { background-color: #5f4fec; }
+
+/* Prioridade */
+.tag {
+  display: inline-block;
+  padding: 3px 6px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+  height: 20px;
+  width: 60px;
+  text-align: center;
+}
+
+.prioridade-alta { background-color: #013a73; }
+.prioridade-alta::after { content: "ðŸŸ©"; }
+.prioridade-mÃ©dia { background-color: #013a73; }
+.prioridade-mÃ©dia::after { content: "ðŸŸ¨"; }
+.prioridade-baixa { background-color: #013a73; }
+.prioridade-baixa::after { content: "ðŸŸ¥"; }
+
+/* BotÃµes de aÃ§Ã£o dentro da tabela */
+.acoes {
+  text-align: center;
+}
+
+.btn {
+  border: none;
+  cursor: pointer;
+  margin: 0 2px;
+  font-size: 16px;
+  padding: 5px 5px;
+  border-radius: 8px;
+}
+
+.btn.ver { background-color: #3a3a3a; color: #fff; }
+.btn.editar { background-color: #013a73; color: #fff; }
+.btn.apagar { background-color: #9c0000; color: #fff; }
+.btn:hover { opacity: 0.8; }
+
+
+/*================== Objetos em geral ==================*/
+
+spam {
+  color: black;
+}
+
+/* Area segura: Bloco invisivel para que objetos nÃ£o fiquem atrÃ¡s do footer */
+.area-segura {
+    padding: 20px;
+  }
+
+  /*================== Modais ==================*/
+
+  /* Overlay do modal: Fundo escuro */
+ #overlay {
+    position: fixed; 
+    width: 100vw; height: 100vh; 
+    top: 0; left: 0;
+    background: rgba(0,0,0,0.5); 
+    display: none; 
+    justify-content: center; 
+    align-items: center;
+    z-index: 1;
+ }
+ /* ConteÃºdo do modal */
+#modalContent {
+    font-size: 14px;
+    background: #fff; 
+    padding: 20px; 
+    border-radius: 8px; 
+    top: 5%; left: 40%; 
+    max-width: 400px; 
+    position: fixed; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    z-index: 1;
+}
+
+  /* Estilo Ãºnico para o conteÃºdo (formulÃ¡rio) de todos os modais */
+  .modal-form label {
+      font-weight: bold;
+  }
+
+  .modal-form input,
+  .modal-form textarea,
+  .modal-form select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #000;
+      box-sizing: border-box;
+  }
+
+  .modal-form .acoes-modal {
+      text-align: right;
+      margin-top: 20px;
+  }
+
+  .radiobox-modais {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;"
+  }
+
+
+  /*================= Splash ===================*/
+
+  /* Splash Screen */
+#splash {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: #cacaca;
+  color: #333333d4;
+  display: block;
+  
+  align-items: center;
+  opacity: 0;
+  
+  z-index: 9999; /* fica acima de tudo */
+}
+
+#splash.active {
+  opacity: 1;
+}
+
+/* Logo */
+#splash .logo {
+  width: 120px;
+  margin-bottom: 20px;
+  display: block;
+  align-items: center;
+}
+
+/* Ãrea dos Ã­cones */
+.icons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.icon-box {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;        /* cor da caixa */
+  border: 2px solid #013a73; /* borda */
+  border-radius: 8px;      /* arredondado */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  font-size: 2rem;
+  opacity: 0;              /* controlado pelo JS */
+  transition: opacity 1s ease;
+}
+
+#loading-message {
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  font-size: 1.2rem;
+  margin-top: 20px;
+  
+}
+
+/* Barra de progresso */
+.progress {
+  width: 100%;
+  height: 30px;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.progress-bar {
+  width: 0%;
+  height: 100%;
+  background: #013a73; 
+  transition: width 2s ease;
+}
+
+/* Card da animaÃ§Ã£o (loading-screen) */
+#loading-screen {
+  background-color: #FFFFFF;
+  border-radius: 8px;
+  border: 1px solid #d0d0d0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 30px;
+  max-width: 400px;          /* igual ao login */
+  margin: 60px auto;         /* igual ao login */
+  opacity: 0;
+  transition: opacity 2s ease;
+}
+
+#welcome-screen {
+  opacity: 0;
+  transition: opacity 2s ease;
+  font-size: 100px;
+
+  display: flex;
+  justify-content: center;   /* centraliza horizontalmente */
+  align-items: center;       /* centraliza verticalmente */
+  text-align: center;
+
+  /* ocupa toda a Ã¡rea da tela */
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+#loading-screen.visible,
+#welcome-screen.visible {
+  opacity: 1;
+}
+
+/* AnimaÃ§Ã£o de fade */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Estado inicial da home (usado sÃ³ na splash) */
+.main-content.fade-target {
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+/* Estado visÃ­vel com fade */
+.main-content.fade-target.visible {
+  opacity: 1;
+}
+
+
+=== public\css\style2.css ===
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+
+/* Cor de fundo geral do site */
+body {
+    font-family: 'Roboto', sans-serif ;
+    background-color: #171717;
+    color: #ffffffc0
+}
+
+/* Estrutura base para cards */
+.card {
+    background-color: #3d3d3d;
+    border-radius: 8px;
+    border: 1px solid #404040;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    margin: 60px auto;
+    max-width: 400px;
+}
+
+/* Estilo global para campos de formulÃ¡rio (exceto botÃµes) */
+input,
+textarea,
+select {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid rgb(165, 165, 165);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    margin-bottom: 16px;
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+}
+
+/* Estilo visual exclusivo para botÃµes */
+button {
+    border-radius: 6px;
+    padding: 10px 16px;
+    background-color: #6f6f6f; 
+    color: white;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+       
+
+
+=== public\js\script.js ===
+/* FunÃ§Ãµes de modal */
+
+function abrirModal() {
+  // Exibe overlay
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'flex';
+
+  // Limpa conteÃºdo anterior (evita duplicaÃ§Ã£o)
+  const modal = document.getElementById('modalContent');
+  // Corrigido: X apenas fecha o modal, sem redirecionar
+  modal.innerHTML = '<span onclick="document.getElementById(\'overlay\').style.display=\'none\';" style="cursor:pointer; position:absolute; top:10px; right:15px; font-size:20px; font-weight:bold; color:#000;">X</span>';
+
+  // Carrega conteÃºdo da pÃ¡gina via fetch
+  fetch('index.php?controller=novaTarefa&method=novaTarefa', {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  })
+  .then(response => response.text())
+  .then(html => {
+    modal.innerHTML += html;
+  })
+  .catch(err => {
+    modal.innerHTML += "<p style='color:red;'>Erro ao carregar conteÃºdo.</p>";
+  });
+
+  // Fecha ao clicar fora do card (overlay)
+  overlay.onclick = function(e) {
+    if (e.target === overlay) {
+      overlay.style.display = 'none';
+    }
+  };
+}
+
+function abrirModalVer(taskId) {
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'flex';
+  const modal = document.getElementById('modalContent');
+  modal.innerHTML = '<span onclick="document.getElementById(\'overlay\').style.display=\'none\';" style="cursor:pointer; position:absolute; top:10px; right:15px; font-size:20px; font-weight:bold; color:#000;">X</span>';
+
+  fetch('index.php?controller=tarefa&method=detalhesTarefa&task_id=' + taskId, {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  })
+    .then(response => response.text())
+    .then(html => { modal.innerHTML += html; })
+    .catch(err => { modal.innerHTML += "<p style='color:red;'>Erro ao carregar detalhes da tarefa.</p>"; });
+
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
+}
+
+function abrirModalEditar(taskId) {
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'flex';
+  const modal = document.getElementById('modalContent');
+  modal.innerHTML = '<span onclick="document.getElementById(\'overlay\').style.display=\'none\';" style="cursor:pointer; position:absolute; top:10px; right:15px; font-size:20px; font-weight:bold; color:#000;">X</span>';
+
+  fetch('index.php?controller=tarefa&method=editarTarefa&task_id=' + taskId, {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  })
+    .then(response => response.text())
+    .then(html => { modal.innerHTML += html; })
+    .catch(err => { modal.innerHTML += "<p style='color:red;'>Erro ao carregar ediÃ§Ã£o da tarefa.</p>"; });
+
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
+}
+
+function abrirModalApagar(taskId) {
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'flex';
+  const modal = document.getElementById('modalContent');
+  modal.innerHTML = `
+    <h2>Tem certeza?</h2>
+    <p>Esta aÃ§Ã£o nÃ£o pode ser desfeita.</p>
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+      <button onclick="document.getElementById('overlay').style.display='none';"
+              style="background-color:#c00; color:#fff; padding:10px 20px; border:none; cursor:pointer;">
+        Cancelar
+      </button>
+      <button onclick="confirmarApagar(${taskId})"
+              style="background-color:green; color:#fff; padding:10px 20px; border:none; cursor:pointer;">
+        Confirmar
+      </button>
+    </div>
+  `;
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
+}
+
+function confirmarApagar(taskId) {
+  fetch('index.php?controller=tarefa&method=apagarTarefa', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: 'task_id=' + encodeURIComponent(taskId)
+  })
+  .then(response => response.text())
+  .then(html => {
+    document.getElementById('overlay').style.display = 'none';
+    location.reload();
+  })
+  .catch(err => {
+    document.getElementById('modalContent').innerHTML =
+      "<p style='color:red;'>Erro ao apagar tarefa.</p>";
+  });
+}
+
+
+function toggleMenu() {
+  const menu = document.querySelector(".menu-lateral-slide");
+  const estaRetraido = menu.classList.contains("retraido");
+
+  if (estaRetraido) {
+    menu.classList.add("expandindo");
+    menu.classList.remove("retraido");
+
+    menu.addEventListener("transitionend", function aoTerminarExpandir(e) {
+      if (e.propertyName === "width") {
+        menu.removeEventListener("transitionend", aoTerminarExpandir);
+        const spans = menu.querySelectorAll("a span");
+        spans.forEach(span => { span.style.opacity = "0"; });
+        menu.classList.remove("expandindo");
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            spans.forEach(span => { span.style.opacity = ""; });
+          });
+        });
+      }
+    });
+  } else {
+    menu.classList.remove("expandindo");
+    menu.classList.add("retraido");
+  }
+}
+
+
+function togglelogo() {
+  const menu = document.querySelector(".logo-login");
+  const estaRetraido = menu.classList.contains("mini");
+
+  if (estaRetraido) {
+    menu.classList.add("expandindo");
+    menu.classList.remove("retraido");
+
+    menu.addEventListener("transitionend", function aoTerminarExpandir(e) {
+      if (e.propertyName === "width") {
+        menu.removeEventListener("transitionend", aoTerminarExpandir);
+        const spans = menu.querySelectorAll("a span");
+        spans.forEach(span => { span.style.opacity = "0"; });
+        menu.classList.remove("expandindo");
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            spans.forEach(span => { span.style.opacity = ""; });
+          });
+        });
+      }
+    });
+  } else {
+    menu.classList.remove("expandindo");
+    menu.classList.add("retraido");
+  }
+}
+
+
+
+/* Splash Screen */
+document.addEventListener("DOMContentLoaded", function() {
+  const splash = document.getElementById("splash");
+  if (splash) {
+    splash.classList.add("active");
+
+    const messages = [
+      "Colorindo post-its",
+      "Desenhando emojis",
+      "Etiquetando prioridades",
+      "Alfinetando os alfinetes",
+      "Organizando a bagunÃ§a"
+    ];
+
+    const msgEl = document.getElementById("loading-message");
+    const boxes = document.querySelectorAll(".icon-box");
+    const progressBar = document.querySelector(".progress-bar");
+    const loading = document.getElementById("loading-screen");
+    const welcome = document.getElementById("welcome-screen");
+
+    const TEMPO_ENTRE_ICONES = 1000;
+    const TEMPO_FADE = 1500;
+    const TEMPO_BEM_VINDO = 2000;
+
+    let step = 0;
+    const totalSteps = boxes.length;
+
+    const main = document.querySelector(".main-content");
+    const footer = document.querySelector(".footer");
+    const menu = document.querySelector(".menu-lateral-slide");
+
+    main.classList.add("fade-target");
+    main.style.display = "none";
+    footer.style.display = "none";
+    menu.style.display = "none";
+
+    function showStep() {
+      if (step < totalSteps) {
+        // mostra Ã­cone
+        boxes[step].style.opacity = 1;
+
+        // mostra frase correspondente (inclusive a primeira)
+        msgEl.textContent = messages[step];
+        msgEl.style.opacity = 1;
+
+        // atualiza barra
+        progressBar.style.width = ((step + 1) / totalSteps) * 100 + "%";
+
+        step++;
+        setTimeout(showStep, TEMPO_ENTRE_ICONES);
+      } else {
+        // terminou carregamento â†’ fade-out do loading
+        setTimeout(() => {
+          loading.style.opacity = 0;
+          setTimeout(() => {
+            loading.style.display = "none";
+
+            // mostra bem-vindo com fade-in
+            welcome.style.display = "flex";
+            setTimeout(() => {
+              welcome.style.opacity = 1;
+
+              // depois fade-out do bem-vindo
+              setTimeout(() => {
+                welcome.style.opacity = 0;
+                setTimeout(() => {
+                  splash.style.display = "none";
+
+                  // mostra layout com fade-in
+                  main.style.display = "block";
+                  footer.style.display = "block";
+                  menu.style.display = "block";
+
+                  setTimeout(() => {
+                    main.classList.add("visible");
+                  }, 50);
+                }, TEMPO_FADE);
+              }, TEMPO_BEM_VINDO);
+            }, 50);
+          }, TEMPO_FADE);
+        }, 500);
+      }
+    }
+
+    showStep();
+  }
+});
+
+
+=== views\auth\cadastro.php ===
+<!-- BotÃ£o de retorno padrÃ£o no canto superior esquerdo -->
+<div style="position: absolute; top: 20px; left: 20px;">
+    <a href="index.php?controller=auth&method=login"
+       style="
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+       ">
+        &#8592; Retornar ao login
+    </a>
+</div>
+
+<?php
+// cadastro.php - View do formulÃ¡rio de cadastro com estilo de card centralizado e comentÃ¡rios detalhados
+
+// Recebe os dados passados pelo controller via $dadosParaView
+// Esses dados sÃ£o usados para preencher os campos e mostrar erros
+$erroPrincipal = $dadosParaView['errosPrincipal'] ?? null;    // Mensagem principal de erro
+$erroCheckbox = $dadosParaView['erroCheckbox'] ?? null;      // Mensagem de erro do checkbox de aceite
+$nomeVal = $dadosParaView['nomeVal'] ?? '';                  // Valor preenchido do campo nome
+$apelidoVal = $dadosParaView['apelidoVal'] ?? '';            // Valor preenchido do campo apelido (opcional)
+$idadeVal = $dadosParaView['idadeVal'] ?? '';                // Valor preenchido do campo idade
+$loginVal = $dadosParaView['loginVal'] ?? '';                // Valor preenchido do campo login
+$aceitaTermosChecked = $dadosParaView['aceitaTermosChecked'] ?? '';  // Estado do checkbox (checked ou vazio)
+?>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Cadastro de UsuÃ¡rio</title>
+</head>
+<!-- Corpo da pÃ¡gina estilizado para centralizar vertical e horizontalmente o conteÃºdo -->
+<body style="display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
+
+    <!-- Div que funciona como card contendo o formulÃ¡rio, com borda preta fina e padding -->
+    <div class="card-login">
+
+        <!-- TÃ­tulo da pÃ¡gina -->
+        <h1>Cadastro de UsuÃ¡rio</h1>
+        <p style="font-size: 16px;">Preencha os campos abaixo para criar sua conta</p>
+
+        <!-- Exibe a mensagem principal de erro, se existir -->
+        <?php if ($erroPrincipal): ?>
+            <p style="color: red; font-weight: bold; margin-bottom: 15px;">
+                <?= htmlspecialchars($erroPrincipal) ?>
+            </p>
+        <?php endif; ?>
+
+        <!-- FormulÃ¡rio de cadastro que envia os dados para o mÃ©todo cadastroSubmit do controller auth -->
+        <form action="index.php?controller=auth&method=cadastroSubmit" method="post" novalidate>
+
+            <!-- Campo nome, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="nome">Nome*:</label><br />
+                <input 
+                    type="text" 
+                    id="nome" 
+                    name="nome" 
+                    value="<?= htmlspecialchars($nomeVal) ?>"
+                    required 
+                    style="width: 100%; padding: 6px;"/>
+            </div>
+
+            <!-- Campo apelido, opcional -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="apelido">Apelido:</label><br />
+                <input 
+                    type="text" 
+                    id="apelido" 
+                    name="apelido" 
+                    value="<?= htmlspecialchars($apelidoVal) ?>" 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Campo idade, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="idade">Idade*:</label><br />
+                <input 
+                    type="number" 
+                    id="idade" 
+                    name="idade" 
+                    value="<?= htmlspecialchars($idadeVal) ?>" 
+                    required 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Campo login, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="login">Login*:</label><br />
+                <input 
+                    type="text" 
+                    id="login" 
+                    name="login" 
+                    value="<?= htmlspecialchars($loginVal) ?>" 
+                    required 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Campo senha, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="senha">Senha*:</label><br />
+                <input 
+                    type="password" 
+                    id="senha" 
+                    name="senha" 
+                    required 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Campo repetir senha, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="repetir_senha">Repetir Senha*:</label><br />
+                <input 
+                    type="password" 
+                    id="repetir_senha" 
+                    name="repetir_senha" 
+                    required 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Checkbox de aceite dos termos, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <input 
+                    type="checkbox" 
+                    id="aceita_termos" 
+                    name="aceita_termos" 
+                    value="1" 
+                    <?= $aceitaTermosChecked ?>/>
+                <label for="aceita_termos">
+                    Declaro que li e aceito os 
+                    <a href="#" target="_blank" rel="noopener noreferrer">termos</a> <!-- Link futuro -->
+                </label>
+
+                <!-- Exibe mensagem de erro do checkbox, se existir -->
+                <?php if ($erroCheckbox): ?>
+                    <p style="color: red; font-weight: bold; margin-top: 5px;">
+                        <?= htmlspecialchars($erroCheckbox) ?>
+                    </p>
+                <?php endif; ?>
+            </div>
+
+            <!-- BotÃ£o de envio do formulÃ¡rio -->
+            <button type="submit" style="
+                padding: 8px 16px;
+                cursor: pointer;
+                font-size: 16px;
+                margin-top: 10px;
+            ">
+                Cadastrar
+            </button>
+        </form>
+    </div>
+
+</body>
+</html>
+
+
+=== views\auth\cadastroSubmit.php ===
+<?php
+// cadastroSubmit.php - View com card centralizado e borda preta fina
+?>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Cadastro - Sucesso</title>
+</head>
+<body style="display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
+
+    <div style="
+        border: 1px solid black;
+        padding: 20px 40px;
+        max-width: 400px;
+        text-align: center;
+        box-sizing: border-box;
+    ">
+        <h1>Cadastro realizado com sucesso</h1>
+        <p>FaÃ§a login com seus dados para utilizar o sistema.</p>
+
+        <form action="index.php" method="get" style="margin-top: 20px;">
+            <button type="submit" style="
+                padding: 8px 16px;
+                cursor: pointer;
+                font-size: 16px;
+            ">Continuar</button>
+        </form>
+    </div>
+
+</body>
+</html>
+
+
+=== views\auth\cadastro_legado.php ===
+<!-- BotÃ£o de retorno padrÃ£o no canto superior esquerdo -->
+<div style="position: absolute; top: 20px; left: 20px;">
+    <a href="index.php?controller=auth&method=login"
+       style="
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+       ">
+        &#8592; Retornar ao login
+    </a>
+</div>
+
+<?php
+// cadastro.php - View do formulÃ¡rio de cadastro com estilo de card centralizado e comentÃ¡rios detalhados
+
+// Recebe os dados passados pelo controller via $dadosParaView
+// Esses dados sÃ£o usados para preencher os campos e mostrar erros
+$erroPrincipal = $dadosParaView['errosPrincipal'] ?? null;    // Mensagem principal de erro
+$erroCheckbox = $dadosParaView['erroCheckbox'] ?? null;      // Mensagem de erro do checkbox de aceite
+$nomeVal = $dadosParaView['nomeVal'] ?? '';                  // Valor preenchido do campo nome
+$apelidoVal = $dadosParaView['apelidoVal'] ?? '';            // Valor preenchido do campo apelido (opcional)
+$idadeVal = $dadosParaView['idadeVal'] ?? '';                // Valor preenchido do campo idade
+$loginVal = $dadosParaView['loginVal'] ?? '';                // Valor preenchido do campo login
+$aceitaTermosChecked = $dadosParaView['aceitaTermosChecked'] ?? '';  // Estado do checkbox (checked ou vazio)
+?>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Cadastro de UsuÃ¡rio</title>
+</head>
+<!-- Corpo da pÃ¡gina estilizado para centralizar vertical e horizontalmente o conteÃºdo -->
+<body style="display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
+
+    <!-- Div que funciona como card contendo o formulÃ¡rio, com borda preta fina e padding -->
+    <div style="
+        border: 1px solid black;         /* Borda preta fina */
+        padding: 20px 40px;              /* EspaÃ§amento interno vertical e horizontal */
+        max-width: 400px;                /* Largura mÃ¡xima do card */
+        width: 100%;                    /* Ocupa 100% do container pai atÃ© o max-width */
+        box-sizing: border-box;          /* Inclui borda e padding na largura total */
+        text-align: center;              /* Centraliza texto dentro do card */
+    ">
+
+        <!-- TÃ­tulo da pÃ¡gina -->
+        <h1>Cadastro de UsuÃ¡rio</h1>
+
+        <!-- Exibe a mensagem principal de erro, se existir -->
+        <?php if ($erroPrincipal): ?>
+            <p style="color: red; font-weight: bold; margin-bottom: 15px;">
+                <?= htmlspecialchars($erroPrincipal) ?>
+            </p>
+        <?php endif; ?>
+
+        <!-- FormulÃ¡rio de cadastro que envia os dados para o mÃ©todo cadastroSubmit do controller auth -->
+        <form action="index.php?controller=auth&method=cadastroSubmit" method="post" novalidate>
+
+            <!-- Campo nome, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="nome">Nome*:</label><br />
+                <input 
+                    type="text" 
+                    id="nome" 
+                    name="nome" 
+                    value="<?= htmlspecialchars($nomeVal) ?>"
+                    required 
+                    style="width: 100%; padding: 6px;"/>
+            </div>
+
+            <!-- Campo apelido, opcional -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="apelido">Apelido:</label><br />
+                <input 
+                    type="text" 
+                    id="apelido" 
+                    name="apelido" 
+                    value="<?= htmlspecialchars($apelidoVal) ?>" 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Campo idade, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="idade">Idade*:</label><br />
+                <input 
+                    type="number" 
+                    id="idade" 
+                    name="idade" 
+                    value="<?= htmlspecialchars($idadeVal) ?>" 
+                    required 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Campo login, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="login">Login*:</label><br />
+                <input 
+                    type="text" 
+                    id="login" 
+                    name="login" 
+                    value="<?= htmlspecialchars($loginVal) ?>" 
+                    required 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Campo senha, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="senha">Senha*:</label><br />
+                <input 
+                    type="password" 
+                    id="senha" 
+                    name="senha" 
+                    required 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Campo repetir senha, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <label for="repetir_senha">Repetir Senha*:</label><br />
+                <input 
+                    type="password" 
+                    id="repetir_senha" 
+                    name="repetir_senha" 
+                    required 
+                    style="width: 100%; padding: 6px;" 
+                />
+            </div>
+
+            <!-- Checkbox de aceite dos termos, obrigatÃ³rio -->
+            <div style="margin-bottom: 10px; text-align: left;">
+                <input 
+                    type="checkbox" 
+                    id="aceita_termos" 
+                    name="aceita_termos" 
+                    value="1" 
+                    <?= $aceitaTermosChecked ?>/>
+                <label for="aceita_termos">
+                    Declaro que li e aceito os 
+                    <a href="#" target="_blank" rel="noopener noreferrer">termos</a> <!-- Link futuro -->
+                </label>
+
+                <!-- Exibe mensagem de erro do checkbox, se existir -->
+                <?php if ($erroCheckbox): ?>
+                    <p style="color: red; font-weight: bold; margin-top: 5px;">
+                        <?= htmlspecialchars($erroCheckbox) ?>
+                    </p>
+                <?php endif; ?>
+            </div>
+
+            <!-- BotÃ£o de envio do formulÃ¡rio -->
+            <button type="submit" style="
+                padding: 8px 16px;
+                cursor: pointer;
+                font-size: 16px;
+                margin-top: 10px;
+            ">
+                Cadastrar
+            </button>
+        </form>
+    </div>
+
+</body>
+</html>
+
+
+=== views\auth\esqueciSenha.php ===
+<!-- BotÃ£o de retorno padrÃ£o no canto superior esquerdo -->
+<div style="position: absolute; top: 20px; left: 20px;">
+    <a href="index.php?controller=auth&method=login"
+       style="
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+       ">
+        &#8592; Retornar ao login
+    </a>
+</div>
+
+<!-- aviso de erro de autenticaÃ§Ã£o -->
+<?php if (!empty($erro)): ?>
+    <div style="
+        border: 1px solid black;
+        color: red;
+        font-weight: bold;
+        padding: 10px;
+        margin: 0 auto 20px auto;
+        max-width: 400px;
+        text-align: center;
+    ">
+        &#9888; <?= htmlspecialchars($erro) ?>
+    </div>
+<?php endif; ?>
+
+<!-- Container para centralizar o conteÃºdo na tela -->
+<div style="
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+">
+
+<!-- Card de recuperaÃ§Ã£o de senha -->
+<div class="card-login">
+
+<h1>Esqueci minha senha</h1>
+        <h2 style="font-size: 16px;">Passo 1 de 2: Digite seus dados de acesso para redefinir sua senha</h2>
+
+        <form method="POST" action="index.php?controller=auth&method=validaDadosParaReset">
+
+            <label for="nome">Nome:</label><br>
+            <input 
+                type="text" 
+                name="nome" 
+                id="nome"
+                required 
+                value="<?= htmlspecialchars($dados['nome'] ?? '') ?>"
+                style="width: 100%; padding: 8px; box-sizing: border-box;"
+            ><br><br>
+
+            <label for="idade">Idade:</label><br>
+            <input 
+                type="number" 
+                name="idade" 
+                id="idade"
+                required 
+                value="<?= htmlspecialchars($dados['idade'] ?? '') ?>"
+                style="width: 100%; padding: 8px; box-sizing: border-box;"
+            ><br><br>
+
+            <label for="login">Login:</label><br>
+            <input 
+                type="text" 
+                name="login" 
+                id="login"
+                required 
+                value="<?= htmlspecialchars($dados['login'] ?? '') ?>"
+                style="width: 100%; padding: 8px; box-sizing: border-box;"
+            ><br><br>
+
+            <button type="submit" style="width: 100%; padding: 10px;">Validar</button>
+
+        </form>
+</div>
+</div>
+
+
+=== views\auth\login.php ===
+<!-- Faixa de fundo exclusiva da tela de login -->
+<div class="login-bg-stripe"></div>
+
+<div class="login-wrapper">
+
+<!-- Exibe mensagem de erro de login caso exista -->
+<?php if (!empty($erro_login)): ?>
+    <div style="
+        border: 1px solid black;
+        color: red;
+        font-weight: bold;
+        padding: 5px;
+        margin: 0 auto 20px auto;
+        max-width: 450px;
+        text-align: center;
+    ">
+        &#9888; <?= htmlspecialchars($erro_login) ?> 
+    </div>
+<?php endif; ?>
+
+<!-- Alerta se a sessÃ£o do usuÃ¡rio expirou -->
+<?php if (!empty($sessao_expirada)): ?>
+    <script>
+        alert("Sua sessÃ£o expirou por inatividade. FaÃ§a login novamente.");
+    </script>
+<?php endif; ?>
+
+<!-- Card principal do formulÃ¡rio de login -->
+<div class='card-login'>
+    <img src="public/img/logo-2-do-it.png" alt="2Do it." class="logo-login">
+    
+    <p style="text-align: center;">Entre ou cadastre-se</p>
+
+    <!-- FormulÃ¡rio de login -->
+    <form method="POST" action="index.php?controller=auth&method=loginSubmit" style="margin-top: 20px;">
+        <label>Login:</label><br>
+        <input type="text" name="login" required style="width: 100%; padding: 8px; margin-bottom: 15px;"><br>
+
+        <label>Senha:</label><br>
+        <input type="password" name="senha" required style="width: 100%; padding: 8px; margin-bottom: 20px;"><br>
+
+        <button type="submit" style="width: 100%; padding: 10px;">Entrar</button>
+    </form>
+
+    <!-- Links adicionais -->
+    <div style="margin-top: 20px; text-align: center;">
+        <a href="index.php?controller=auth&method=esqueciSenha">Esqueci minha senha</a><br><br>
+        <span>Ainda nÃ£o tÃ¡ com a gente? </span>
+        <a href="index.php?controller=auth&method=cadastro">Chega mais!</a>
+    </div>
+</div>
+
+</div> <!-- fecha .login-wrapper -->
+
+
+=== views\auth\login_legado.php ===
+<!-- Exibe mensagem de erro de login caso exista -->
+<?php if (!empty($erro_login)): ?>
+    <div style="
+        border: 1px solid black;  /* Borda preta ao redor */
+        color: red;               /* Texto em vermelho */
+        font-weight: bold;        /* Negrito para destaque */
+        padding: 5px;            /* EspaÃ§o interno */
+        margin: 60px auto;     /* Centraliza e define 20px de espaÃ§o abaixo */
+        max-width: 450px;         /* Largura mÃ¡xima para alinhar com o formulÃ¡rio */
+        text-align: center;           /* Centraliza o texto */
+    ">
+        <!-- Ãcone de alerta + mensagem -->    
+        &#9888; <?= htmlspecialchars($erro_login) ?> 
+    </div>
+<?php endif; ?>
+
+<!-- Alerta se a sessÃ£o do usuÃ¡rio expirou -->
+<?php if (!empty($sessao_expirada)): ?>
+    <script>
+        alert("Sua sessÃ£o expirou por inatividade. FaÃ§a login novamente.");
+    </script>
+<?php endif; ?>
+
+<!-- Card principal do formulÃ¡rio de login -->
+<div class='card-login'>
+    <h1 style="text-align: center;">Login</h1>
+    <p style="text-align: center;">Entre ou cadastre-se</p>
+
+    <!-- FormulÃ¡rio de login -->
+    <form method="POST" action="index.php?controller=auth&method=loginSubmit" style="margin-top: 20px;">
+        <label>Login:</label><br>
+        <input type="text" name="login" required style="width: 100%; padding: 8px; margin-bottom: 15px;"><br>
+
+        <label>Senha:</label><br>
+        <input type="password" name="senha" required style="width: 100%; padding: 8px; margin-bottom: 20px;"><br>
+
+        <button type="submit" style="width: 100%; padding: 10px;">Entrar</button>
+    </form>
+
+    <!-- Links adicionais -->
+    <div style="margin-top: 20px; text-align: center;">
+        <a href="index.php?controller=auth&method=esqueciSenha">Esqueci minha senha</a><br><br>
+        <span>Ainda nÃ£o tÃ¡ com a gente? </span>
+        <a href="index.php?controller=auth&method=cadastro">Chega mais!</a>
+    </div>
+</div>
+
+
+=== views\auth\novaSenha.php ===
+<!-- BotÃ£o de retorno no canto superior esquerdo -->
+<div style="position: absolute; top: 20px; left: 20px;">
+    <a href="index.php?controller=auth&method=esqueciSenha"
+       style="
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+       ">
+        &#8592; Retornar ao Passo 1
+    </a>
+</div>
+
+<!-- Container centralizado para o card -->
+<div style="
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+">
+    <!-- Card principal -->
+    <div style="
+        border: 1px solid black;
+        padding: 30px;
+        width: 350px;
+        background-color: white;
+    ">
+        <h1>Nova Senha</h1>
+        <h2 style="font-size: 16px;">Passo 2 de 2:<br> Digite sua nova senha</h2>
+
+        <!-- FormulÃ¡rio de redefiniÃ§Ã£o -->
+        <form method="POST" action="index.php?controller=auth&method=processaNovaSenha">
+
+            <label>Nova Senha:</label><br>
+            <input type="password" name="nova_senha" required
+                style="width: 100%; padding: 8px; margin-bottom: 15px;"><br>
+
+            <button type="submit" style="width: 100%; padding: 10px;">Atualizar Senha</button>
+        </form>
+    </div>
+</div>
+
+
+=== views\auth\senhaRedefinida.php ===
+<!-- Container centralizado -->
+<div style="
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+    text-align: center;
+">
+
+    <div style="
+        border: 1px solid black;
+        padding: 30px;
+        max-width: 400px;
+        background-color: white;
+    ">
+        <h1>Senha atualizada com sucesso!</h1>
+        <p>Agora vocÃª pode fazer login com sua nova senha.</p>
+        
+        <a href="index.php?controller=auth&method=login" style="
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: black;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        ">
+            Ir para o login
+        </a>
+    </div>
+
+</div>
+
+
+=== views\definicoes\apagarConta.php ===
+<!-- Card centralizado -->
+<div style="
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 1px solid black;
+    padding: 30px;
+    background: white;
+    width: 90%;
+    max-width: 400px;
+    box-sizing: border-box;
+    text-align: center;
+">
+
+    <h2 style="margin-bottom: 20px;">Confirmar exclusÃ£o da conta</h2>
+    <p style="margin-bottom: 30px;">
+        Tem certeza que deseja apagar sua conta?<br>
+        Esta aÃ§Ã£o <strong>nÃ£o pode ser desfeita</strong>.
+    </p>
+
+    <div style="display: flex; justify-content: center; gap: 20px;">
+        <a href="index.php?controller=definicoes&method=definicoes" 
+           style="
+               padding: 10px 20px;
+               border: 1px solid black;
+               background-color: white;
+               font-weight: bold;
+               text-decoration: none;
+               cursor: pointer;
+               flex: 1;
+               max-width: 120px;
+               text-align: center;
+           ">
+            Cancelar
+        </a>
+
+        <a href="index.php?controller=usuario&method=apagarContaConfirmada" 
+           style="
+               padding: 10px 20px;
+               border: none;
+               background-color: red;
+               color: white;
+               font-weight: bold;
+               text-decoration: none;
+               cursor: pointer;
+               flex: 1;
+               max-width: 120px;
+               text-align: center;
+           ">
+            Apagar
+        </a>
+    </div>
+</div>
+
+
+=== views\definicoes\definicoes.php ===
+<link rel="icon" type="image/png" href="public/img/favicon-2-do-it.png" />
+
+
+<!-- Card principal -->
+<div class="card-headers">
+    <h1>DefiniÃ§Ãµes</h1>
+    <p>Nesta seÃ§Ã£o, vocÃª pode ajustar as preferÃªncias da sua conta e da aplicaÃ§Ã£o.</p>
+</div>
+
+<!-- Breadcrumb -->
+<div class="breadcrumbs">
+    <p style="font-size: 14px; color: #555;">
+        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+            Home
+        </a> &gt; DefiniÃ§Ãµes
+    </p>
+</div>
+
+<!-- Card com dados de definiÃ§Ãµes -->
+<div class="card">
+
+    <!-- Abas (Geral | Minha senha) -->
+    <div style="display: flex; margin-bottom: 20px; gap: 20px;">
+        <button class="button-aba-settings" onclick="mostrarAba('geral')" id="abaGeral"  style="border-bottom: 5px solid black;">
+            <spam>Geral</spam>
+        </button>
+        <button class="button-aba-settings" onclick="mostrarAba('senha')" id="abaSenha">
+            <spam>Minha senha</spam>
+        </button>
+    </div>
+
+    <!-- ConteÃºdo da aba Geral -->
+    <div id="conteudoGeral">
+        <h2>ConfiguraÃ§Ãµes Gerais</h2>
+
+        <!-- Tema -->
+        <div style="margin-bottom: 20px;">
+            <label for="tema"><strong>Tema:</strong></label><br>
+            <select id="tema" name="tema" style="padding: 8px; width: 200px; border: 1px solid black;">
+                <option value="default">Default</option>
+                <option value="indigo">Indigo</option>
+                <option value="clear">Clear</option>
+                <option value="meia-noite">Meia-Noite</option>
+                <option value="win-98">Win-98</option>
+            </select>
+        </div>
+
+        <!-- SaudaÃ§Ã£o dinÃ¢mica -->
+        <div style="margin-bottom: 20px;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <span style="margin-right: 10px;">SaudaÃ§Ã£o dinÃ¢mica     </span>
+                <input type="checkbox" id="toggleSaudacaoDinamica" style="display:none;">
+                <span class="switch"></span>
+            </label>
+        </div>
+
+        <!-- SaudaÃ§Ã£o personalizada -->
+        <div style="margin-bottom: 10px;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <span style="margin-right: 10px;">SaudaÃ§Ã£o personalizada</span>
+                <input type="checkbox" id="toggleSaudacaoPersonalizada" style="display:none;">
+                <span class="switch"></span>
+            </label>
+        </div>
+
+        <!-- Campo de texto da SaudaÃ§Ã£o personalizada -->
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="inputSaudacaoPersonalizada" placeholder="Digite sua saudaÃ§Ã£o personalizada" disabled
+                   style="padding: 8px; width: 100%; max-width: 400px; border: 1px solid black; box-sizing: border-box;">
+        </div>
+
+        <!-- Apagar conta -->
+        <div>
+            <a href="index.php?controller=definicoes&method=apagarConta" style="color: red; text-decoration: none; font-weight: bold;">
+                Apagar minha conta
+            </a>
+        </div>
+    </div>
+
+    <!-- ConteÃºdo da aba Minha senha -->
+    <div id="conteudoSenha" style="display: none;">
+        <h2>Alterar Senha</h2>
+
+        <!-- Campo: Nova senha -->
+        <div style="margin-bottom: 15px;">
+            <label for="novaSenha"><strong>Nova senha:</strong></label><br>
+            <input type="password" id="novaSenha" name="novaSenha" style="padding: 8px; width: 300px; border: 1px solid black;">
+        </div>
+
+        <!-- Campo: Confirmar nova senha -->
+        <div style="margin-bottom: 20px;">
+            <label for="confirmarSenha"><strong>Confirmar nova senha:</strong></label><br>
+            <input type="password" id="confirmarSenha" name="confirmarSenha" style="padding: 8px; width: 300px; border: 1px solid black;">
+        </div>
+
+        <button> 
+            Salvar nova senha
+        </button>
+    </div>
+
+</div>
+
+<!-- Estilos para botÃµes chave -->
+<style>
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  background-color: #ccc;
+  border-radius: 12px;
+  transition: background-color 0.3s;
+}
+.switch::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s;
+}
+input[type="checkbox"]:checked + .switch {
+  background-color: #4caf50;
+}
+input[type="checkbox"]:checked + .switch::before {
+  transform: translateX(26px);
+}
+label {
+  user-select: none;
+}
+</style>
+
+<!-- Script JS abas e botÃµes chave -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleDinamica = document.getElementById('toggleSaudacaoDinamica');
+        const togglePersonalizada = document.getElementById('toggleSaudacaoPersonalizada');
+        const inputSaudacao = document.getElementById('inputSaudacaoPersonalizada');
+
+        toggleDinamica.addEventListener('change', function() {
+            if (this.checked) {
+                console.log('SaudaÃ§Ã£o dinÃ¢mica ativada');
+            } else {
+                console.log('SaudaÃ§Ã£o dinÃ¢mica desativada');
+            }
+        });
+
+        function atualizarInput() {
+            inputSaudacao.disabled = !togglePersonalizada.checked;
+        }
+
+        togglePersonalizada.addEventListener('change', function() {
+            atualizarInput();
+            if (this.checked) {
+                console.log('SaudaÃ§Ã£o personalizada ativada');
+            } else {
+                console.log('SaudaÃ§Ã£o personalizada desativada');
+            }
+        });
+
+        // Inicializa estado do input no carregamento
+        atualizarInput();
+    });
+
+    function mostrarAba(qual) {
+        const abaGeral = document.getElementById('abaGeral');
+        const abaSenha = document.getElementById('abaSenha');
+        const conteudoGeral = document.getElementById('conteudoGeral');
+        const conteudoSenha = document.getElementById('conteudoSenha');
+
+        if (qual === 'geral') {
+            conteudoGeral.style.display = 'block';
+            conteudoSenha.style.display = 'none';
+            abaGeral.style.borderBottom = '2px solid black';
+            abaSenha.style.borderBottom = 'none';
+        } else {
+            conteudoGeral.style.display = 'none';
+            conteudoSenha.style.display = 'block';
+            abaGeral.style.borderBottom = 'none';
+            abaSenha.style.borderBottom = '2px solid black';
+        }
+    }
+</script>
+
+
+
+=== views\docs\00_index.md ===
+# DocumentaÃ§Ã£o Oficial â€“ Projeto Organizador
+
+Este Ã­ndice contÃ©m todos os componentes do sistema, com links para seus manuais completos.
+
+## Componentes
+
+1. [Login](01_login.md)
+2. [Cadastro](02_cadastro.md)
+3. [Card de Tarefas](03_card_tarefas.md)
+4. [Logout](04_logout.md)
+5. [RecuperaÃ§Ã£o de Senha](05_recuperacao_senha.md)
+...
+
+
+=== views\docs\01_login.md ===
+# Componente: Login
+
+## 1. Objetivo
+Permitir que o usuÃ¡rio se autentique no sistema usando login e senha previamente cadastrados.
+
+## 2. Tabela de elementos do componente View (`login.php`)
+
+| Linha | Elemento | Tipo | Classe / ID / Name | FunÃ§Ã£o |
+|-------|---------|------|------------------|--------|
+| 1     | `<?php if (!empty($erro_login)): ?>` | PHP condicional | â€” | Verifica se hÃ¡ mensagem de erro de login |
+| 2-8   | `<div>` | Container de erro | Inline styles | Exibe a mensagem de login incorreto `$erro_login` |
+| 7     | `<?= htmlspecialchars($erro_login) ?>` | Texto | â€” | Mostra a mensagem de erro |
+| 10    | `<?php if (!empty($sessao_expirada)): ?>` | PHP condicional | â€” | Verifica se a sessÃ£o expirou |
+| 11-13 | `<script>` | JS | â€” | Alerta de sessÃ£o expirada |
+| 16    | `<div class='card-login'>` | Container principal | `card-login` | Container do formulÃ¡rio |
+| 17    | `<h1>` | TÃ­tulo | â€” | â€œLoginâ€ |
+| 18    | `<p>` | SubtÃ­tulo | â€” | â€œEntre ou cadastre-seâ€ |
+| 20    | `<form method="POST" action="index.php?controller=auth&method=loginSubmit">` | FormulÃ¡rio | â€” | Envia dados para Controller |
+| 21    | `<label>Login:</label>` | Label | â€” | Indica campo login |
+| 22    | `<input type="text" name="login">` | Input | name=`login` | Recebe login do usuÃ¡rio |
+| 24    | `<label>Senha:</label>` | Label | â€” | Indica campo senha |
+| 25    | `<input type="password" name="senha">` | Input | name=`senha` | Recebe senha do usuÃ¡rio |
+| 27    | `<button type="submit">Entrar</button>` | BotÃ£o | â€” | Submete formulÃ¡rio |
+| 30-35 | `<div>` + links | Container | Inline | Links â€œEsqueci senhaâ€ e â€œCadastroâ€ |
+
+
+Trechos integrantes do componente Login na View (login.php)
+
+<?php if (!empty($erro_login)): ?>
+    <div style="
+        border: 1px solid black;
+        color: red;
+        font-weight: bold;
+        padding: 5px;
+        margin: 60px auto;
+        max-width: 450px;
+        text-align: center;
+    ">
+        &#9888; <?= htmlspecialchars($erro_login) ?>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($sessao_expirada)): ?>
+    <script>
+        alert("Sua sessÃ£o expirou por inatividade. FaÃ§a login novamente.");
+    </script>
+<?php endif; ?>
+
+<div class='card-login'>
+    <h1 style="text-align: center;">Login</h1>
+    <p style="text-align: center;">Entre ou cadastre-se</p>
+
+    <form method="POST" action="index.php?controller=auth&method=loginSubmit" style="margin-top: 20px;">
+        <label>Login:</label><br>
+        <input type="text" name="login" required style="width: 100%; padding: 8px; margin-bottom: 15px;"><br>
+
+        <label>Senha:</label><br>
+        <input type="password" name="senha" required style="width: 100%; padding: 8px; margin-bottom: 20px;"><br>
+
+        <button type="submit" style="width: 100%; padding: 10px;">Entrar</button>
+    </form>
+
+    <div style="margin-top: 20px; text-align: center;">
+        <a href="index.php?controller=auth&method=esqueciSenha">Esqueci minha senha</a><br><br>
+        <span>Ainda nÃ£o tÃ¡ com a gente? </span>
+        <a href="index.php?controller=auth&method=cadastro">Chega mais!</a>
+    </div>
+</div>
+
+
+---
+
+## 3. Controller (`authController.php`)
+
+### MÃ©todo `login()`
+- Prepara dados para renderizar a view.
+- VariÃ¡veis importantes:
+  - `$erro_login`
+  - `$sessao_expirada`
+
+Trechos integrantes do componente Login na controller
+
+public function login() {
+    $sessao_expirada = false;
+    $erro_login = '';
+
+    if (isset($_SESSION['sessao_expirada']) && $_SESSION['sessao_expirada'] === true) {
+        $sessao_expirada = true;
+        unset($_SESSION['sessao_expirada']);
+    }
+
+    if (isset($_SESSION['erro_login'])) {
+        $erro_login = $_SESSION['erro_login'];
+        unset($_SESSION['erro_login']);
+    }
+
+    return [
+        'sessao_expirada' => $sessao_expirada,
+        'erro_login' => $erro_login
+    ];
+}
+
+---
+
+
+### MÃ©todo `loginSubmit()`
+- Recebe `$_POST['login']` e `$_POST['senha']`.
+- Valida campos vazios â†’ define erro.
+- Busca usuÃ¡rio no banco via `authModel->findByLogin($login)`.
+- Verifica senha com `password_verify`.
+- Se vÃ¡lido â†’ define sessÃµes:
+  - `$_SESSION['usuario_logado']`
+  - `$_SESSION['usuario_nome']`
+  - `$_SESSION['usuario_id']`
+- Se invÃ¡lido â†’ define `$_SESSION['erro_login']` e redireciona.
+
+public function loginSubmit() {
+    $login = trim($_POST['login'] ?? '');
+    $senha = $_POST['senha'] ?? '';
+
+    if (empty($login) || empty($senha)) {
+        $_SESSION['erro_login'] = "Login e senha sÃ£o obrigatÃ³rios.";
+        header("Location: index.php?controller=auth&method=login");
+        exit;
+    }
+
+    $usuario = $this->authModel->findByLogin($login);
+
+    if ($usuario && password_verify($senha, $usuario['usu_senha'])) {
+        $_SESSION['usuario_logado'] = $login;
+        $_SESSION['usuario_nome'] = $usuario['usu_nome'];
+        $_SESSION['usuario_id'] = $usuario['usu_id'];
+
+        header("Location: index.php?controller=home&method=index");
+        exit;
+    } else {
+        $_SESSION['erro_login'] = $usuario ? "Senha incorreta." : "UsuÃ¡rio nÃ£o encontrado.";
+        header("Location: index.php?controller=auth&method=login");
+        exit;
+    }
+}
+
+
+---
+
+## 4. Model (`authModel.php`)
+
+| MÃ©todo | FunÃ§Ã£o |
+|--------|--------|
+| `__construct()` | Cria conexÃ£o MySQL |
+| `findByLogin(string $login)` | Busca usuÃ¡rio pelo login |
+| `__destruct()` | Fecha conexÃ£o com banco |
+
+Trechos integrantes do componente Login na model
+
+class authModel {
+    private $conn;
+
+    public function __construct() {
+        $this->conn = new mysqli("127.0.0.1", "root", "12345", "projeto_x", 3308);
+        if ($this->conn->connect_error) {
+            die("Erro de conexÃ£o: " . $this->conn->connect_error);
+        }
+    }
+
+    public function findByLogin(string $login) {
+        $stmt = $this->conn->prepare("SELECT usu_id, usu_nome, usu_apelido, usu_idade, usu_login, usu_senha FROM usuario WHERE usu_login = ?");
+        $stmt->bind_param("s", $login);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $usuario = $result->fetch_assoc();
+        $stmt->close();
+        return $usuario ?: null;
+    }
+
+    public function __destruct() {
+        $this->conn->close();
+    }
+}
+
+
+
+---
+
+## 5. Fluxo do componente
+
+1. UsuÃ¡rio acessa pÃ¡gina de login â†’ Controller `login()`.
+2. View renderizada â†’ mostra erros ou sessÃ£o expirada.
+3. UsuÃ¡rio envia formulÃ¡rio â†’ Controller `loginSubmit()`.
+4. Controller chama Model â†’ busca usuÃ¡rio.
+5. Verifica senha:
+   - Se correto â†’ define sessÃ£o â†’ redireciona para Home.
+   - Se incorreto â†’ define erro â†’ redireciona para login.
+
+---
+
+## 6. SessÃµes / VariÃ¡veis
+
+| VariÃ¡vel | FunÃ§Ã£o |
+|----------|--------|
+| `$_SESSION['usuario_logado']` | Flag usuÃ¡rio logado |
+| `$_SESSION['usuario_nome']` | Nome do usuÃ¡rio logado |
+| `$_SESSION['usuario_id']` | ID do usuÃ¡rio logado |
+| `$_SESSION['erro_login']` | Mensagem de erro de login |
+| `$_SESSION['sessao_expirada']` | Flag sessÃ£o expirada |
+
+---
+
+## 7. Checklist de desenvolvimento
+
+- [x] View completa com formulÃ¡rio, inputs, botÃ£o, mensagens e links.
+- [x] Controller com mÃ©todos `login()` e `loginSubmit()`.
+- [x] Model com mÃ©todo `findByLogin()` e conexÃ£o segura.
+- [x] SessÃµes criadas corretamente.
+- [x] Fluxo do usuÃ¡rio documentado.
+- [x] ComentÃ¡rios explicativos.
+- [x] Elementos da view, classes, inputs e botÃµes listados.
+- [x] SeguranÃ§a: prepared statements + `password_verify`.
+
+
+=== views\estatisticas\estatisticas.php ===
+<!-- BotÃ£o de retorno padrÃ£o no canto superior esquerdo -->
+<div style="position: absolute; top: 20px; left: 20px;">
+    <a href="index.php?controller=home&method=index"
+       style="
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+       ">
+        &#8592; Voltar
+    </a>
+</div>
+
+<!-- Card principal -->
+<div class="card-headers">
+
+    <!-- TÃ­tulo -->
+    <h1>EstatÃ­sticas</h1>
+
+    <!-- Texto Lorem Ipsum -->
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+
+</div>
+
+<!-- Breadcrumb -->
+<div class="breadcrumbs">
+    <p style="font-size: 14px; color: #555;">
+        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+            Home
+        </a> &gt; EstatÃ­sticas
+    </p>
+</div>
+
+<div class="card">
+    <p><strong>Em breve...</strong></p>
+    <!-- Texto Lorem Ipsum -->
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+</div>
+
+
+
+
+=== views\home\home.php ===
+<!-- Menu lateral 
+ // comentado para ocultar temporariamente
+<div class="menu-lateral-default">
+    <h3>Menu</h3>
+    <ul>
+        <-- Alterado para abrir modal ->
+        <li><a href="#" onclick="abrirModal()">Nova Tarefa</a></li>
+        <li><a href="index.php?controller=tarefa&method=gestaoTarefa">Minhas tarefas</a></li>
+        <li><a href="index.php?controller=estatisticas&method=estatisticas">EstatÃ­sticas</a></li>
+        <li><a href="index.php?controller=perfil&method=meuPerfil">Meu Perfil</a></li>
+        <li><a href="index.php?controller=definicoes&method=definicoes">DefiniÃ§Ãµes</a></li>
+        <li><a href="index.php?controller=auth&method=logout">Logout</a></li>
+    </ul>
+</div>
+-->
+
+<link rel="icon" type="image/png" href="public/img/favicon-2-do-it.png" />
+
+<!-- Card headers de boas-vindas -->
+    <div class="card-headers">
+    <h1>Bonjour, <?= htmlspecialchars($dadosParaView['nomeParaExibir']) ?>!</h1>
+    </div>
+
+<!-- Um futuro card interativo-->
+    <div class="card-interativo">Bem-vindo ao seu organizador de tarefas pessoal. 
+        Aqui vocÃª pode acompanhar suas tarefas, definir prioridades e manter-se organizado. 
+        Vamos comeÃ§ar a organizar seu dia!</div>
+<!-- Linha divisÃ³ria 
+<div style="height: 1px; background-color: black; margin-bottom: 10px; margin-left: 220px; margin-right: 220px;"></div>
+-->
+
+<!-- DIV PAI dos Cards estatÃ­sticos -->
+    <div class="card-views-home-father">
+    
+    <!-- Card: PrÃ³ximas Tarefas -->
+    <div class="card-views-home">
+        <spam>PrÃ³ximas Tarefas</spam>
+        <p><?= isset($dadosParaView['proximasTarefasQtd']) ? $dadosParaView['proximasTarefasQtd'] : '0' ?></p>
+    </div>
+
+    <!-- Card: Tarefas ConcluÃ­das ult 30 dias -->
+    <div class="card-views-home">
+        <spam>Tarefas concluÃ­das nos Ãºltimos 30 dias</spam>
+        <p><?= $dadosParaView['qtdConcluidasUlt30Dias'] ?? 0 ?></p>
+    </div>
+
+    <!-- Card: Total de tarefas cadastradas -->
+    <div class="card-views-home">
+        <spam>Total de tarefas cadastradas</spam>
+        <p><?= $dadosParaView['totalTarefas'] ?? 0 ?></p>
+    </div>
+
+    <!-- Card: Tarefas com Alta Prioridade -->
+    <div class="card-views-home">
+        <spam>Alta prioridade</spam>
+        <p><?= $dadosParaView['tarefasAltaPrioridade'] ?? 0 ?></p>
+    </div>
+
+    <!-- Card: Tarefas Pendentes -->
+    <div class="card-views-home">
+        <spam>Tarefas Pendentes</spam>
+        <p><?= $dadosParaView['tarefasPendentes'] ?? 0 ?></p>
+    </div>
+
+    <!-- Card: Tarefas Atrasadas -->
+    <div class="card-views-home">
+        <spam>Tarefas atrasadas</spam>
+        <p><?= $dadosParaView['tarefasAtrasadas'] ?? 0 ?></p>
+
+    </div>
+    </div>
+
+<!-- cards tabela prox tarefas -->
+    <div class="card">
+    <div class="titulo-secao">PrÃ³ximas tarefas</div>
+    <hr><br>
+    <?php if (!empty($dadosParaView['proximasTarefasTabela'])): ?>
+        <table class="tabela-tarefas">
+        <!-- border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse;"-->
+            <thead>
+                <tr>
+                    <th>ID</th><th>TÃ­tulo</th><th>Tipo</th><th>Prioridade</th><th>InÃ­cio</th><th>Fim</th><th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dadosParaView['proximasTarefasTabela'] as $tarefa): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($tarefa['TASK_ID']) ?></td>
+                        <td><?= htmlspecialchars($tarefa['TASK_TITULO']) ?></td>
+                        <td><?= htmlspecialchars($tarefa['TASK_TIPOTAREFA']) ?></td>
+                        <td><?= htmlspecialchars($tarefa['TASK_PRIORIDADE']) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($tarefa['TASK_DATAINICIO'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($tarefa['TASK_DATAFIM'])) ?></td>
+                        <td><?= htmlspecialchars($tarefa['TASK_STATUS']) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?><p class="sem-tarefas-info">Sem tarefas prÃ³ximas.</p><?php endif; ?>
+    </div>    
+
+<!-- cards tabela tarefas em atraso -->
+    <div class="card">    
+    <div class="titulo-secao">Tarefas em atraso</div>
+    <hr><br>
+    <?php if (!empty($dadosParaView['tarefasAtrasadasTabela'])): ?>
+        <table class="tabela-tarefas">
+            <thead>
+                <tr>
+                    <th>ID</th><th>TÃ­tulo</th><th>Tipo</th><th>Prioridade</th><th>InÃ­cio</th><th>Vencimento</th><th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dadosParaView['tarefasAtrasadasTabela'] as $t): ?>
+                    <tr>
+                        <td><?= $t['TASK_ID'] ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TITULO']) ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TIPOTAREFA']) ?></td>
+                        <td><?= $t['TASK_PRIORIDADE'] ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAINICIO'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAFIM'])) ?></td>
+                        <td><?= $t['TASK_STATUS'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?><p class="sem-tarefas-info">Nenhuma tarefa em atraso.</p><?php endif; ?>
+    </div>    
+
+<!-- cards tabela Todas as tarefas -->
+    <div class="card">
+    <div class="titulo-secao">Todas as tarefas</div>
+    <hr><br>
+    <?php if (!empty($dadosParaView['todasTarefasTabela'])): ?>
+        <table class="tabela-tarefas">
+            <thead>
+                <tr>
+                    <th>ID</th><th>TÃ­tulo</th><th>Tipo</th><th>Prioridade</th><th>InÃ­cio</th><th>Vencimento</th><th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dadosParaView['todasTarefasTabela'] as $t): ?>
+                    <tr>
+                        <td><?= $t['TASK_ID'] ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TITULO']) ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TIPOTAREFA']) ?></td>
+                        <td><?= $t['TASK_PRIORIDADE'] ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAINICIO'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAFIM'])) ?></td>
+                        <td><?= $t['TASK_STATUS'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?><p class="sem-tarefas-info">NÃ£o hÃ¡ tarefas cadastradas.</p><?php endif; ?>
+    </div>    
+
+<!-- cards tabela tarefas realizadas -->
+    <div class="card">
+        <div class="titulo-secao">Ãšltimas Tarefas realizadas</div>
+        <hr><br>
+        <?php if (!empty($dadosParaView['ultimasTarefasRealizadasTabela'])): ?>
+            <table class="tabela-tarefas">
+                <thead>
+                    <tr>
+                        <th>ID</th><th>TÃ­tulo</th><th>Tipo</th><th>Prioridade</th><th>InÃ­cio</th><th>Vencimento</th><th>Data RealizaÃ§Ã£o</th><th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dadosParaView['ultimasTarefasRealizadasTabela'] as $t): ?>
+                    <tr>
+                        <td><?= $t['TASK_ID'] ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TITULO']) ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TIPOTAREFA']) ?></td>
+                        <td><?= $t['TASK_PRIORIDADE'] ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAINICIO'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAFIM'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAREALIZACAO'])) ?></td>
+                        <td><?= $t['TASK_STATUS'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?><p class="sem-tarefas-info">Sem tarefas concluÃ­das.</p><?php endif; ?>
+    </div>    
+
+
+
+
+=== views\home\home_legado.php ===
+<!-- Menu lateral -->
+<div style="
+    position: fixed;
+    left: 20px;
+    top: 40%;
+    transform: translateY(-50%);
+    width: 150px;
+    padding: 20px;
+    border: 1px solid black;
+">
+    <h3>Menu</h3>
+    <ul style="list-style: none; padding: 0;">
+        <li><a href="index.php?controller=novaTarefa&method=novaTarefa">Nova Tarefa</a></li>
+        <li><a href="index.php?controller=tarefa&method=gestaoTarefa">Minhas tarefas</a></li>
+        <li><a href="index.php?controller=estatisticas&method=estatisticas">EstatÃ­sticas</a></li>
+        <li><a href="index.php?controller=perfil&method=meuPerfil">Meu Perfil</a></li>
+        <li><a href="index.php?controller=definicoes&method=definicoes">DefiniÃ§Ãµes</a></li>
+        <li><a href="index.php?controller=auth&method=logout">Logout</a></li>
+    </ul>
+</div>
+
+<!-- Card headers de boas-vindas -->
+<div class="card card-headers">
+    <h1>Bonjour, <?= htmlspecialchars($dadosParaView['nomeParaExibir']) ?>!</h1>
+</div>
+
+<!-- cards estatisticas-->
+
+<!-- Linha divisÃ³ria -->
+<div style="
+    height: 1px;
+    background-color: black;
+    margin-bottom: 10px;
+    margin-left: 220px;
+    margin-right: 220px;
+"></div>
+
+<!-- DIV PAI dos Cards estatÃ­sticos -->
+<div style="
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    margin-left: 220px;
+    margin-right: 220px;
+    margin-bottom: 20px;
+">
+
+    <!-- Card: PrÃ³ximas Tarefas -->
+    <div style="border: 1px solid black; padding: 20px; width: 48%; display: inline-block; margin: 1%;">
+    <h3>PrÃ³ximas Tarefas</h3>
+    <p style="font-size: 24px; font-weight: bold;">
+        <?= isset($dadosParaView['proximasTarefasQtd']) ? $dadosParaView['proximasTarefasQtd'] : '0' ?>
+    </p>
+    </div>
+
+    <!-- card 2: Qtd tarefas concluidas ult 30 dias -->
+    <div style="border: 1px solid black; padding: 15px; flex: 1 1 14%; min-width: 120px;">
+        <h4>Quantidade de tarefas concluÃ­das nos Ãºltimos 30 dias</h4>
+        <p><?= $dadosParaView['qtdConcluidasUlt30Dias'] ?? 0 ?></p>
+    </div>
+
+    <!-- card 3: Total de tarefas cadastradas -->
+    <div style="border: 1px solid black; padding: 15px; flex: 1 1 14%; min-width: 120px;">
+        <h4>Total de tarefas cadastradas</h4>
+        <p><?= $dadosParaView['totalTarefas'] ?? 0 ?></p>
+    </div>
+
+    <!-- card 4: Alta prioridade -->
+    <div style="border: 1px solid black; padding: 15px; flex: 1 1 14%; min-width: 120px;">
+        <h4>Alta prioridade</h4>
+        <p><?= $dadosParaView['tarefasAltaPrioridade'] ?? 0 ?></p>
+    </div>
+
+    <!-- card 5: Tarefas Pendentes -->
+    <div style="border: 1px solid black; padding: 15px; flex: 1 1 14%; min-width: 120px;">
+        <h4>Tarefas Pendentes</h4>
+        <p><?= $dadosParaView['tarefasPendentes'] ?? 0 ?></p>
+    </div>
+
+    <!-- card 6: Tarefas atrasadas -->
+    <div style="border: 1px solid black; padding: 15px; flex: 1 1 14%; min-width: 120px;">
+        <h4>Tarefas atrasadas</h4>
+        <p><?= $dadosParaView['tarefasAtrasadas'] ?? 0 ?></p>
+    </div>
+
+</div>
+
+<!-- cards tabela prox tarefas -->
+<div style="border: 1px solid black; margin-left: 220px; margin-right: 220px; padding: 15px; margin-bottom: 20px;">
+    <h3>PrÃ³ximas tarefas</h3>
+
+    <?php if (!empty($dadosParaView['proximasTarefasTabela'])): ?>
+        <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>TÃ­tulo</th>
+                    <th>Tipo</th>
+                    <th>Prioridade</th>
+                    <th>InÃ­cio</th>
+                    <th>Fim</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dadosParaView['proximasTarefasTabela'] as $tarefa): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($tarefa['TASK_ID']) ?></td>
+                        <td><?= htmlspecialchars($tarefa['TASK_TITULO']) ?></td>
+                        <td><?= htmlspecialchars($tarefa['TASK_TIPOTAREFA']) ?></td>
+                        <td><?= htmlspecialchars($tarefa['TASK_PRIORIDADE']) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($tarefa['TASK_DATAINICIO'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($tarefa['TASK_DATAFIM'])) ?></td>
+                        <td><?= htmlspecialchars($tarefa['TASK_STATUS']) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?>
+        <p>Sem tarefas prÃ³ximas.</p>
+    <?php endif; ?>
+</div>
+
+
+<!-- cards tabela tarefas em atraso-->
+<div style="border: 1px solid black; margin-left: 220px; margin-right: 220px; padding: 15px; margin-bottom: 20px;">
+    <h3>Tarefas em atraso</h3>
+    <?php if (!empty($dadosParaView['tarefasAtrasadasTabela'])): ?>
+        <table border="1" cellpadding="8" cellspacing="0" width="100%" style="border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>TÃ­tulo</th>
+                    <th>Tipo</th>
+                    <th>Prioridade</th>
+                    <th>InÃ­cio</th>
+                    <th>Vencimento</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dadosParaView['tarefasAtrasadasTabela'] as $t): ?>
+                    <tr>
+                        <td><?= $t['TASK_ID'] ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TITULO']) ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TIPOTAREFA']) ?></td>
+                        <td><?= $t['task_prioridade'] ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAINICIO'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAFIM'])) ?></td>
+                        <td><?= $t['task_status'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?>
+        <p>Nenhuma tarefa em atraso.</p>
+    <?php endif; ?>
+</div>
+
+<!-- cards tabela Todas as tarefas -->
+<div style="border: 1px solid black; margin-left: 220px; margin-right: 220px; padding: 15px; margin-bottom: 20px;">
+    <h3>Todas as tarefas</h3>
+    <?php if (!empty($dadosParaView['todasTarefasTabela'])): ?>
+        <table border="1" cellpadding="8" cellspacing="0" width="100%" style="border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>TÃ­tulo</th>
+                    <th>Tipo</th>
+                    <th>Prioridade</th>
+                    <th>InÃ­cio</th>
+                    <th>Vencimento</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dadosParaView['todasTarefasTabela'] as $t): ?>
+                    <tr>
+                        <td><?= $t['TASK_ID'] ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TITULO']) ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TIPOTAREFA']) ?></td>
+                        <td><?= $t['TASK_PRIORIDADE'] ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAINICIO'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAFIM'])) ?></td>
+                        <td><?= $t['TASK_STATUS'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?>
+        <p>NÃ£o hÃ¡ tarefas cadastradas.</p>
+    <?php endif; ?>
+</div>
+
+<!-- cards tabela tarefas realizadas -->
+<div style="border: 1px solid black; margin-left: 220px; margin-right: 220px; padding: 15px; margin-bottom: 20px;">
+    <h3>Ãšltimas Tarefas realizadas</h3>
+    <?php if (!empty($dadosParaView['ultimasTarefasRealizadasTabela'])): ?>
+        <table border="1" cellpadding="8" cellspacing="0" width="100%" style="border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>TÃ­tulo</th>
+                    <th>Tipo</th>
+                    <th>Prioridade</th>
+                    <th>InÃ­cio</th>
+                    <th>Vencimento</th>
+                    <th>Data RealizaÃ§Ã£o</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($dadosParaView['ultimasTarefasRealizadasTabela'] as $t): ?>
+                    <tr>
+                        <td><?= $t['TASK_ID'] ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TITULO']) ?></td>
+                        <td><?= htmlspecialchars($t['TASK_TIPOTAREFA']) ?></td>
+                        <td><?= $t['TASK_PRIORIDADE'] ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAINICIO'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAFIM'])) ?></td>
+                        <td><?= date('d/m/Y H:i', strtotime($t['TASK_DATAREALIZACAO'])) ?></td>
+                        <td><?= $t['TASK_STATUS'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?>
+        <p>Sem tarefas concluÃ­das.</p>
+    <?php endif; ?>
+</div>
+
+<!-- Linha divisÃ³ria -->
+<div style="
+    height: 1px;
+    background-color: black;
+    margin-bottom: 10px;
+    margin-left: 220px;
+    margin-right: 220px;
+"></div>
+
+<!-- Footer fixo -->
+<footer style="
+    position: fixed;
+    border: 1px solid black;
+    padding: 10px 20px;
+    bottom: 0;
+    left: 220px; /* respeita a largura da barra lateral */
+    right: 220px;
+    background: #fff;
+    z-index: 999;
+">
+    <p align="right">&copy; <?= htmlspecialchars($dadosParaView['anoAtual']) ?> Organizador. Todos os direitos reservados.</p>
+</footer>
+<div style="height: 80px;"></div>
+
+
+=== views\tarefa\detalhesTarefa.php ===
+<?php
+if (!isset($dadosParaView)) {
+    echo "ERRO: dadosParaView nÃ£o estÃ¡ definido.";
+    exit;
+}
+
+// Detecta se estÃ¡ sendo carregada diretamente (fora do modal via fetch)
+$direto = !isset($_SERVER['HTTP_X_REQUESTED_WITH']);
+?>
+
+<?php if ($direto): ?>
+    <!-- Breadcrumb -->
+    <div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+        <p style="font-size: 14px; color: #555;">
+            <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+                Home
+            </a> &gt; 
+            <a href="index.php?controller=tarefa&method=gestaoTarefa" style="text-decoration: none; color: #555;">
+                Minhas tarefas
+            </a> &gt; 
+            Detalhes
+        </p>
+    </div>
+
+    <!-- Card principal -->
+    <div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
+        <!-- BotÃ£o X para voltar -->
+        <a href="index.php?controller=tarefa&method=gestaoTarefa" 
+           style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
+            X
+        </a>
+
+        <!-- TÃ­tulo -->
+        <h1>Detalhes</h1>
+<?php else: ?>
+    <!-- Quando for modal, tÃ­tulo simples -->
+    <h2>Detalhes da Tarefa</h2>
+<?php endif; ?>
+
+<!-- ExibiÃ§Ã£o dos campos -->
+<p><strong>TÃ­tulo:</strong> <?= htmlspecialchars($dadosParaView['titulo'] ?? '') ?></p>
+<p><strong>Tipo:</strong> <?= htmlspecialchars($dadosParaView['tipo'] ?? '') ?></p>
+<p><strong>Prioridade:</strong> <?= htmlspecialchars($dadosParaView['prioridade'] ?? '') ?></p>
+<p><strong>Data de Vencimento:</strong> 
+    <?= isset($dadosParaView['dataVencimento']) ? date('d/m/Y H:i', strtotime($dadosParaView['dataVencimento'])) : '' ?>
+</p>
+<p><strong>DescriÃ§Ã£o:</strong><br>
+    <?= nl2br(htmlspecialchars($dadosParaView['descricao'] ?? '')) ?>
+</p>
+
+<?php if ($direto): ?>
+    </div> <!-- fecha card -->
+
+    <!-- RodapÃ© padrÃ£o -->
+    <footer style="position: fixed; border: 1px solid black; padding: 20px; bottom: 0; left: 220px; right: 220px; background: none; z-index: 999;">
+        <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
+    </footer>
+<?php endif; ?>
+
+
+=== views\tarefa\detalhesTarefa_legado.php ===
+<?php
+if (!isset($dadosParaView)) {
+    echo "ERRO: dadosParaView nÃ£o estÃ¡ definido.";
+    exit;
+}?>
+
+<!-- Breadcrumb -->
+<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+    <p style="font-size: 14px; color: #555;">
+        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+            Home
+        </a> &gt; 
+        <a href="index.php?controller=tarefa&method=gestaoTarefa" style="text-decoration: none; color: #555;">
+            Minhas tarefas
+        </a> &gt; 
+        Detalhes
+    </p>
+</div>
+
+<!-- Card principal -->
+<div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
+
+    <!-- BotÃ£o X para voltar -->
+    <a href="index.php?controller=tarefa&method=gestaoTarefa" 
+       style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
+        X
+    </a>
+
+    <!-- TÃ­tulo -->
+    <h1>Detalhes</h1>
+
+    <!-- ExibiÃ§Ã£o dos campos -->
+    <p><strong>TÃ­tulo:</strong> <?= htmlspecialchars($dadosParaView['titulo'] ?? '') ?></p>
+<p><strong>Tipo:</strong> <?= htmlspecialchars($dadosParaView['tipo'] ?? '') ?></p>
+<p><strong>Prioridade:</strong> <?= htmlspecialchars($dadosParaView['prioridade'] ?? '') ?></p>
+<p><strong>Data de Vencimento:</strong> 
+    <?= isset($dadosParaView['dataVencimento']) ? date('d/m/Y H:i', strtotime($dadosParaView['dataVencimento'])) : '' ?>
+</p>
+<p><strong>DescriÃ§Ã£o:</strong><br>
+    <?= nl2br(htmlspecialchars($dadosParaView['descricao'] ?? '')) ?>
+</p>
+
+</div>
+
+<!-- RodapÃ© padrÃ£o -->
+<footer style="position: fixed; border: 1px solid black; padding: 20px; bottom: 0; left: 220px; right: 220px; background: none; z-index: 999;">
+    <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
+</footer>
+
+
+=== views\tarefa\editarTarefa.php ===
+<?php
+if (!isset($dadosParaView)) {
+    echo "ERRO: dadosParaView nÃ£o estÃ¡ definido.";
+    exit;
+}
+
+// Detecta se estÃ¡ sendo carregada diretamente (fora do modal via fetch)
+$direto = !isset($_SERVER['HTTP_X_REQUESTED_WITH']);
+?>
+
+<?php if ($direto): ?>
+    <!-- Breadcrumb -->
+    <div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+        <p style="font-size: 14px; color: #555;">
+            <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+                Home
+            </a> &gt; 
+            <a href="index.php?controller=tarefa&method=gestaoTarefa" style="text-decoration: none; color: #555;">
+                Minhas tarefas
+            </a> &gt; 
+            Editar
+        </p>
+    </div>
+
+    <!-- Card principal -->
+    <div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
+        <!-- BotÃ£o X para voltar -->
+        <a href="index.php?controller=tarefa&method=gestaoTarefa" 
+           style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
+            X
+        </a>
+
+        <!-- TÃ­tulo -->
+        <h1>Editar Tarefa</h1>
+<?php else: ?>
+    <!-- Quando for modal -->
+    <h2>Editar Tarefa</h2>
+<?php endif; ?>
+
+<!-- FormulÃ¡rio de ediÃ§Ã£o -->
+<form method="POST" action="index.php?controller=tarefa&method=atualizar" class="modal-form" style="margin-top: 20px;">
+    <input type="hidden" name="task_id" value="<?= htmlspecialchars($dadosParaView['id'] ?? '') ?>">
+
+    <label for="titulo">TÃ­tulo*</label><br>
+    <input type="text" id="titulo" name="titulo" required
+        value="<?= htmlspecialchars($dadosParaView['titulo'] ?? '') ?>"><br>
+
+    <label for="tipotarefa">Tipo*</label><br>
+    <input type="text" id="tipotarefa" name="tipotarefa" required
+        value="<?= htmlspecialchars($dadosParaView['tipo'] ?? '') ?>"><br>
+
+    <label>Prioridade*</label><br>
+    <div class="radiobox-modais">
+        <label><input type="radio" name="prioridade" value="baixa" <?= (isset($dadosParaView['prioridade']) && strtolower($dadosParaView['prioridade']) === 'baixa') ? 'checked' : '' ?>> Baixa</label>
+        <label><input type="radio" name="prioridade" value="mÃ©dia" <?= (isset($dadosParaView['prioridade']) && strtolower($dadosParaView['prioridade']) === 'mÃ©dia') ? 'checked' : '' ?>> MÃ©dia</label>
+        <label><input type="radio" name="prioridade" value="alta" <?= (isset($dadosParaView['prioridade']) && strtolower($dadosParaView['prioridade']) === 'alta') ? 'checked' : '' ?>> Alta</label>
+    </div>
+
+    <label for="datafim">Data de Vencimento*</label><br>
+    <input type="datetime-local" id="datafim" name="datafim"
+        value="<?= isset($dadosParaView['dataVencimento']) ? htmlspecialchars($dadosParaView['dataVencimento']) : '' ?>">
+
+    <label for="descricao">DescriÃ§Ã£o</label><br>
+    <textarea id="descricao" name="descricao"
+        style="height: 120px; resize: none; overflow-y: auto;"
+        maxlength="280"><?= htmlspecialchars($dadosParaView['descricao'] ?? '') ?></textarea>
+
+    <div class="acoes-modal">
+        <button type="submit">Salvar AlteraÃ§Ãµes</button>
+    </div>
+</form>
+
+<?php if ($direto): ?>
+    </div> <!-- fecha card -->
+
+    <!-- RodapÃ© padrÃ£o -->
+    <footer style="position: fixed; border: 1px solid black; padding: 20px; bottom: 0; left: 220px; right: 220px; background: none; z-index: 999;">
+        <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
+    </footer>
+<?php endif; ?>
+
+
+=== views\tarefa\editarTarefa_legado.php ===
+<?php
+// $dadosParaView traz os dados da tarefa para preencher os campos no formulÃ¡rio
+?>
+
+<!-- Breadcrumb -->
+<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+    <p style="font-size: 14px; color: #555;">
+        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">Home</a> &gt;
+        <a href="index.php?controller=tarefa&method=gestaoTarefa" style="text-decoration: none; color: #555;">Minhas tarefas</a> &gt;
+        Editar
+    </p>
+</div>
+
+<!-- Card principal -->
+<div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
+    
+<!-- BotÃ£o X no canto superior direito -->
+    <a href="index.php?controller=tarefa&method=gestaoTarefa" 
+       style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
+        X
+    </a>
+
+<h1>Editar</h1>
+
+    <form action="index.php?controller=tarefa&method=atualizar" method="POST" style="max-width: 600px;">
+        <input type="hidden" name="task_id" value="<?= htmlspecialchars($dadosParaView['id'] ?? '') ?>">
+
+        <label for="titulo">TÃ­tulo:</label><br>
+        <input type="text" id="titulo" name="titulo" required
+               value="<?= htmlspecialchars($dadosParaView['titulo'] ?? '') ?>" style="width: 100%;"><br><br>
+
+        <label for="tipotarefa">Tipo da tarefa:</label><br>
+        <input type="text" id="tipotarefa" name="tipotarefa" required
+               value="<?= htmlspecialchars($dadosParaView['tipo'] ?? '') ?>" style="width: 100%;"><br><br>
+
+        <label for="prioridade">Prioridade:</label><br>
+        <select id="prioridade" name="prioridade" required style="width: 100%;">
+            <?php
+            $prioridades = ['alta', 'mÃ©dia', 'baixa'];
+            $prioridadeSelecionada = strtolower($dadosParaView['prioridade'] ?? 'mÃ©dia');
+            foreach ($prioridades as $p):
+            ?>
+                <option value="<?= $p ?>" <?= ($p === $prioridadeSelecionada) ? 'selected' : '' ?>>
+                    <?= ucfirst($p) ?>
+                </option>
+            <?php endforeach; ?>
+        </select><br><br>
+
+        <label for="datafim">Data de vencimento:</label><br>
+        <input type="datetime-local" id="datafim" name="datafim" required
+               value="<?= htmlspecialchars($dadosParaView['dataVencimento'] ?? '') ?>" style="width: 100%;"><br><br>
+
+        <!-- Campo Status -->
+        <label for="status">Status:</label><br>
+        <select id="status" name="status" required style="width: 100%;">
+            <?php
+            $statuses = ['pendente', 'concluÃ­da', 'cancelada'];
+            $statusSelecionado = strtolower($dadosParaView['status'] ?? 'pendente');
+            foreach ($statuses as $s):
+            ?>
+                <option value="<?= $s ?>" <?= ($s === $statusSelecionado) ? 'selected' : '' ?>>
+                    <?= ucfirst($s) ?>
+                </option>
+            <?php endforeach; ?>
+        </select><br><br>
+        
+        <label for="descricao">DescriÃ§Ã£o:</label><br>
+        <textarea id="descricao" name="descricao" rows="5" maxlength="280"
+                  style="width: 100%;"><?= htmlspecialchars($dadosParaView['descricao'] ?? '') ?></textarea><br><br>
+
+        <button type="submit">
+        Salvar alteraÃ§Ãµes</button>
+        
+    </form>
+</div>
+
+<!-- RodapÃ© padrÃ£o -->
+<footer style="position: fixed; border: 1px solid black; padding: 20px; bottom: 0; left: 220px; right: 220px; background: none; z-index: 999;">
+    <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
+</footer>
+
+
+=== views\tarefa\gestaoTarefa.php ===
+<!-- BotÃ£o de retorno padrÃ£o no canto superior esquerdo -->
+<div style="position: absolute; top: 20px; left: 20px;">
+    <a href="index.php?controller=home&method=index"
+       style="
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+       ">
+        &#8592; Voltar
+    </a>
+</div>
+
+<?php if (!empty($dadosParaView['sucesso'])): ?>
+    <div style="color: green; font-weight: bold; margin: 10px 220px;">
+        <?= htmlspecialchars($dadosParaView['sucesso']) ?>
+    </div>
+<?php endif; ?>
+
+<!-- Card header -->
+<div class="card-headers">
+    <h1>Minhas Tarefas</h1>
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+</div>
+
+<!-- Breadcrumb -->
+<div class="breadcrumbs">
+    <p class="breadcrumbs-p">
+        <a class="breadcrumbs-a" href="index.php?controller=home&method=index">
+            Home
+        </a> &gt; Minhas tarefas
+    </p>
+</div>
+
+<div class="card">
+<!-- BotÃ£o nova tarefa -->
+<div>
+    <button onclick="abrirModal()">+ Nova Tarefa</button>
+</div>
+<br>
+<!-- Tabela para gestÃ£o de tarefas -->
+<table class="tabela-tarefas">
+    <thead>
+        <tr>
+            <th>TÃ­tulo</th>
+            <th>Tipo da Tarefa</th>
+            <th>Vencimento da Tarefa</th>
+            <th>Prioridade</th>
+            <th>Status</th>
+            <th style="text-align: center;">AÃ§Ãµes</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php if (!empty($tarefas)): ?>
+            <?php foreach ($tarefas as $tarefa): ?>
+                <tr>
+                    <td><?= htmlspecialchars($tarefa['TASK_TITULO']) ?></td>
+                    <td><?= htmlspecialchars($tarefa['TASK_TIPOTAREFA']) ?></td>
+                    <td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($tarefa['TASK_DATAFIM']))) ?></td>
+                    <td>
+                        <span class="tag prioridade-<?= strtolower($tarefa['TASK_PRIORIDADE']) ?>">
+                            <?= htmlspecialchars(ucfirst($tarefa['TASK_PRIORIDADE'])) ?>
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status status-<?= strtolower($tarefa['TASK_STATUS']) ?>">
+                            <?= htmlspecialchars(ucfirst($tarefa['TASK_STATUS'])) ?>
+                        </span>
+                    </td>
+                    <td class="acoes">
+                        <button class="btn ver" onclick="abrirModalVer(<?= $tarefa['TASK_ID'] ?>)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn editar" onclick="abrirModalEditar(<?= $tarefa['TASK_ID'] ?>)">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn apagar" onclick="abrirModalApagar(<?= $tarefa['TASK_ID'] ?>)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <tr>
+                <td colspan="6" class="sem-tarefas">Nenhuma tarefa encontrada.</td>
+            </tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+
+<div class="area-segura"></div>
+
+</div>
+
+
+=== views\tarefa\gestaoTarefa_legado.php ===
+<!-- BotÃ£o de retorno padrÃ£o no canto superior esquerdo -->
+<div style="position: absolute; top: 20px; left: 20px;">
+    <a href="index.php?controller=home&method=index"
+       style="
+           display: inline-block;
+           padding: 10px 15px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+       ">
+        &#8592; Voltar
+    </a>
+</div>
+
+
+
+<?php if (!empty($dadosParaView['sucesso'])): ?>
+    <div style="color: green; font-weight: bold; margin: 10px 220px;">
+        <?= htmlspecialchars($dadosParaView['sucesso']) ?>
+    </div>
+<?php endif; ?>
+
+<!-- Card header -->
+<div class="card card-headers">
+    <h1>Minhas Tarefas</h1>
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+</div>
+
+<!-- Breadcrumb -->
+<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+    <p style="font-size: 14px; color: #555;">
+        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+            Home
+        </a> &gt; Minhas tarefas
+    </p>
+</div>
+
+<!-- BotÃ£o nova tarefa -->
+<div style="margin: 20px 220px 10px 220px;">
+    <form action="index.php" method="GET" style="display: inline;">
+        <input type="hidden" name="controller" value="novaTarefa">
+        <input type="hidden" name="method" value="novaTarefa">
+        <button type="submit">+ Nova Tarefa</button>
+    </form>
+</div>
+
+<!-- Tabela para gestÃ£o de tarefas -->
+<table border="1" cellpadding="8" cellspacing="0" style="margin: 0 220px 20px 220px; width: calc(100% - 440px); border-collapse: collapse;">
+    <thead>
+        <tr>
+            <th>TÃ­tulo</th>
+            <th>Tipo da Tarefa</th>
+            <th>Vencimento da Tarefa</th>
+            <th>Prioridade</th>
+            <th>Status</th>
+            <th style="text-align: center;">AÃ§Ãµes</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php if (!empty($tarefas)): ?>
+
+                  <?php foreach ($tarefas as $tarefa): ?>
+                <tr>
+                    <td><?= htmlspecialchars($tarefa['TASK_TITULO']) ?></td>
+                    <td><?= htmlspecialchars($tarefa['TASK_TIPOTAREFA']) ?></td>
+                    <td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($tarefa['TASK_DATAFIM']))) ?></td>
+                    <td><?= htmlspecialchars(ucfirst($tarefa['TASK_PRIORIDADE'])) ?></td>
+                    <td><?= htmlspecialchars(ucfirst($tarefa['TASK_STATUS'])) ?></td>
+                    <td style="text-align: center;">
+
+                        <!-- BotÃ£o Ver usando GET -->
+                        <a href="index.php?controller=tarefa&method=detalhesTarefa&task_id=<?= $tarefa['TASK_ID'] ?>"
+                           style="text-decoration: none;">
+                            <button type="button">Ver</button>
+                        </a>
+
+                        <!-- BotÃ£o Editar (mantido com POST) -->
+                        <a href="index.php?controller=tarefa&method=editarTarefa&task_id=<?= $tarefa['TASK_ID'] ?>"
+                            style="text-decoration: none;">
+                            <button type="button">Editar</button>
+                        </a>
+
+                        <!-- BotÃ£o Apagar (mantido com POST por enquanto) -->
+                        <form action="index.php?controller=tarefa&method=apagar" method="POST" style="display: inline;">
+                            <input type="hidden" name="task_id" value="<?= $tarefa['TASK_ID'] ?>">
+                            <button type="submit" onclick="return confirm('Confirma exclusÃ£o?')">Apagar</button>
+                        </form>
+
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <tr>
+                <td colspan="6" style="text-align:center;">Nenhuma tarefa encontrada.</td>
+            </tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+
+<!-- Footer fixo padrÃ£o -->
+<footer style="
+    position: fixed;
+    border: 1px solid black;
+    padding: 10px 20px;
+    bottom: 0;
+    left: 220px;
+    right: 220px;
+    background: #fff;
+    z-index: 999;
+">
+    <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
+</footer>
+
+<!-- Footer fixo 
+<footer style="
+    position: fixed;
+    border: 1px solid black;
+    padding: 10px 20px;
+    bottom: 0;
+    left: 220px; 
+    right: 220px;
+    background: #fff;
+    z-index: 999;
+">
+    <p align="right">&copy; <?= htmlspecialchars($dadosParaView['anoAtual']) ?> Organizador. Todos os direitos reservados.</p>
+</footer>
+<div style="height: 80px;"></div> -->
+
+
+=== views\tarefa\novaTarefa.php ===
+<?php
+// Detecta se estÃ¡ sendo carregada diretamente (fora do modal via fetch)
+$direto = !isset($_SERVER['HTTP_X_REQUESTED_WITH']);
+?>
+
+<!-- ConteÃºdo da Nova Tarefa -->
+<?php if ($direto): ?>
+    <!-- BotÃ£o X para fechar quando acessada diretamente -->
+    <a href="index.php?controller=tarefa&method=gestaoTarefa" 
+       style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
+        X
+    </a>
+<?php endif; ?>
+
+<h1>Nova tarefa</h1>
+
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+
+<!-- Mensagem de erro, se existir -->
+<?php if (!empty($dadosParaView['erro'])): ?>
+    <div style="color: red; font-weight: bold; margin-bottom: 15px;">
+        <?= htmlspecialchars($dadosParaView['erro']) ?>
+    </div>
+<?php endif; ?>
+
+<!-- FormulÃ¡rio de Nova Tarefa -->
+<form method="POST" action="index.php?controller=tarefa&method=salvar" class="modal-form" style="margin-top: 20px;">
+
+    <!-- Campo: TÃ­tulo da Tarefa -->
+    <label for="titulo">TÃ­tulo da tarefa*</label><br>
+    <input type="text" id="titulo" name="titulo" required
+        value="<?= isset($_POST['titulo']) ? htmlspecialchars($_POST['titulo']) : '' ?>"><br>
+
+    <!-- Campo: Tipo da Tarefa -->
+    <label for="tipotarefa">Tipo da tarefa*</label><br>
+    <input type="text" id="tipotarefa" name="tipotarefa" required
+        value="<?= isset($_POST['tipotarefa']) ? htmlspecialchars($_POST['tipotarefa']) : '' ?>"><br>
+
+    <!-- Campo: Prioridade da Tarefa -->
+    <label>Prioridade*</label><br>
+    <div class="radiobox-modais">
+        <label>
+            <input type="radio" name="prioridade" value="baixa" <?= (isset($dadosParaView['prioridadePadrao']) && strtolower($dadosParaView['prioridadePadrao']) === 'baixa') ? 'checked' : '' ?>>
+            Baixa
+        </label>
+        <label>
+            <input type="radio" name="prioridade" value="mÃ©dia" <?= (isset($dadosParaView['prioridadePadrao']) && strtolower($dadosParaView['prioridadePadrao']) === 'mÃ©dia') ? 'checked' : '' ?>>
+            MÃ©dia
+        </label>
+        <label>
+            <input type="radio" name="prioridade" value="alta" <?= (isset($dadosParaView['prioridadePadrao']) && strtolower($dadosParaView['prioridadePadrao']) === 'alta') ? 'checked' : '' ?>>
+            Alta
+        </label>
+    </div>
+
+    <!-- Campo: Data de Vencimento -->
+    <label for="datafim">Data de Vencimento*</label><br>
+    <input 
+        type="datetime-local"                     
+        id="datafim"                             
+        name="datafim"                           
+        value="<?= isset($dadosParaView['dataVencimento']) ? htmlspecialchars($dadosParaView['dataVencimento']) : '' ?>" 
+    >
+<br>
+    <!-- Campo: DescriÃ§Ã£o da Tarefa -->
+    <label for="descricao">DescriÃ§Ã£o</label><br>
+    <textarea 
+        id="descricao" 
+        name="descricao"
+        placeholder="<?= isset($dadosParaView['descricaoPlaceholder']) ? htmlspecialchars($dadosParaView['descricaoPlaceholder']) : '' ?>" 
+        style="
+            height: 80px;  
+            resize: none;   
+            overflow-y: auto; 
+        "
+        maxlength="280"><?= isset($dadosParaView['descricaoConteudo']) ? htmlspecialchars($dadosParaView['descricaoConteudo']) : '' ?></textarea>
+
+    <!-- BotÃ£o Salvar -->
+    <div class="acoes-modal">
+        <button type="submit">
+            Salvar Tarefa
+        </button>
+    </div>
+</form>
+
+
+=== views\tarefa\novaTarefa_legado2.php ===
+<!-- EstilizaÃ§Ã£o inline bÃ¡sica temporaria -->
+
+
+<!-- Card principal -->
+<div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
+
+<!-- BotÃ£o X -->
+    <a href="index.php?controller=tarefa&method=gestaoTarefa" 
+       style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
+        X
+    </a>
+
+    <!-- TÃ­tulo -->
+    <h1>Nova tarefa</h1>
+
+    
+    <!-- DescriÃ§Ã£o -->
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+
+    <!-- Mensagem de erro, se existir -->
+<?php if (!empty($dadosParaView['erro'])): ?>
+    <div style="color: red; font-weight: bold; margin-bottom: 15px;">
+        <?= htmlspecialchars($dadosParaView['erro']) ?>
+    </div>
+<?php endif; ?>
+
+    <!-- FormulÃ¡rio de Nova Tarefa -->
+    <form method="POST" action="index.php?controller=tarefa&method=salvar" style="margin: 0 220px;">
+
+        <!-- Campo: TÃ­tulo da Tarefa -->
+        <label for="titulo" style="font-weight: bold;">TÃ­tulo da tarefa*</label><br>
+        <input type="text" id="titulo" name="titulo" required
+            style="width: 100%; padding: 8px; margin-bottom: 20px; border: 1px solid #000;"
+            value="<?= isset($_POST['titulo']) ? htmlspecialchars($_POST['titulo']) : '' ?>"><br>
+
+        <!-- Campo: Tipo da Tarefa -->
+        <label for="tipotarefa" style="font-weight: bold;">Tipo da tarefa*</label><br>
+        <input type="text" id="tipotarefa" name="tipotarefa" required
+            style="width: 100%; padding: 8px; margin-bottom: 20px; border: 1px solid #000;"
+            value="<?= isset($_POST['tipotarefa']) ? htmlspecialchars($_POST['tipotarefa']) : '' ?>"><br>
+
+        <!-- Campo: Prioridade da Tarefa -->
+        <label style="font-weight: bold;">Prioridade*</label><br>
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <label>
+                <input type="radio" name="prioridade" value="baixa" <?= (isset($dadosParaView['prioridadePadrao']) && strtolower($dadosParaView['prioridadePadrao']) === 'baixa') ? 'checked' : '' ?>>
+                Baixa
+            </label>
+            <label>
+                <input type="radio" name="prioridade" value="mÃ©dia" <?= (isset($dadosParaView['prioridadePadrao']) && strtolower($dadosParaView['prioridadePadrao']) === 'mÃ©dia') ? 'checked' : '' ?>>
+                MÃ©dia
+            </label>
+            <label>
+                <input type="radio" name="prioridade" value="alta" <?= (isset($dadosParaView['prioridadePadrao']) && strtolower($dadosParaView['prioridadePadrao']) === 'alta') ? 'checked' : '' ?>>
+                Alta
+            </label>
+        </div>
+
+        <!-- Campo: Data de Vencimento -->
+<label for="datafim" style="font-weight: bold;">Data de Vencimento*</label><br>
+<input 
+    type="datetime-local"                     
+    id="datafim"                             
+    name="datafim"                           
+    value="<?= isset($dadosParaView['dataVencimento']) ? htmlspecialchars($dadosParaView['dataVencimento']) : '' ?>" 
+    style="width: 100%; padding: 8px; margin-bottom: 20px; border: 1px solid #000;"
+>
+
+
+        <!-- Campo: DescriÃ§Ã£o da Tarefa -->
+        <label for="descricao" style="font-weight: bold;">DescriÃ§Ã£o</label><br>
+        <textarea 
+            id="descricao" 
+            name="descricao"
+            placeholder="<?= isset($dadosParaView['descricaoPlaceholder']) ? htmlspecialchars($dadosParaView['descricaoPlaceholder']) : '' ?>" 
+            style="
+                width: 100%; 
+                height: 120px;  
+                padding: 8px; 
+                margin-bottom: 20px; 
+                border: 1px solid #000;
+                resize: none;   
+                overflow-y: auto; 
+            "
+            maxlength="280"><?= isset($dadosParaView['descricaoConteudo']) ? htmlspecialchars($dadosParaView['descricaoConteudo']) : '' ?></textarea>
+
+        <!-- BotÃ£o Salvar -->
+        <div style="text-align: right; margin-top: 20px;">
+            <button type="submit">
+                Salvar Tarefa
+            </button>
+        </div>
+    </form>
+</div>
+
+
+=== views\usuario\editarPerfil.php ===
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Perfil</title>
+    <link rel="icon" type="image/png" href="public/img/favicon-2-do-it.png" />
+</head>
+<body>
+
+<!-- Breadcrumb -->
+<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+    <p style="font-size: 14px; color: #555;">
+        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">Home</a> &gt;
+        <a href="index.php?controller=usuario&method=meuPerfil" style="text-decoration: none; color: #555;">Meu Perfil</a> &gt;
+        Editar Perfil
+    </p>
+</div>
+
+<!-- Card principal -->
+<div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
+
+    
+
+    <h1>Editar Perfil</h1>
+    
+<?php if (!empty($_GET['sucesso'])): ?>
+    <div style="color: green; font-weight: bold; margin-bottom: 20px;">
+        Dados atualizados com sucesso!
+    </div>
+<?php endif; ?>
+
+    <form action="index.php?controller=usuario&method=salvarEdicao" method="POST" style="max-width: 600px;">
+        <input type="hidden" name="usu_id" value="<?= htmlspecialchars($dadosParaView['id'] ?? '') ?>">
+
+        <label for="nome">Nome:</label><br>
+        <input type="text" id="nome" name="nome" required
+               value="<?= htmlspecialchars($dadosParaView['nome'] ?? '') ?>" style="width: 100%;"><br><br>
+
+        <label for="apelido">Apelido (opcional):</label><br>
+        <input type="text" id="apelido" name="apelido"
+               value="<?= htmlspecialchars($dadosParaView['apelido'] ?? '') ?>" style="width: 100%;"><br><br>
+
+        <label for="idade">Idade:</label><br>
+        <input type="number" id="idade" name="idade" required min="1" max="120"
+               value="<?= htmlspecialchars($dadosParaView['idade'] ?? '') ?>" style="width: 100%;"><br><br>
+
+        <button type="submit" style="padding: 10px 20px; font-weight: bold; border: 1px solid black; background-color: white; cursor: pointer;">
+            Salvar
+        </button>
+    </form>
+</div>
+
+<!-- RodapÃ© padrÃ£o -->
+<footer style="position: fixed; border: 1px solid black; padding: 20px; bottom: 0; left: 220px; right: 220px; background: none; z-index: 999;">
+    <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
+</footer>
+
+</body>
+</html>
+
+
+=== views\usuario\meuPerfil.php ===
+<link rel="icon" type="image/png" href="public/img/favicon-2-do-it.png" />
+
+<!-- Card principal -->
+<div class="card-headers">
+    <h1>Meu Perfil</h1>
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+</div>
+
+<!-- Breadcrumb -->
+<div class="breadcrumbs">
+    <p style="font-size: 14px; color: #555;">
+        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+            Home
+        </a> &gt; Meu Perfil
+    </p>
+</div>
+
+
+<!-- Card com dados do perfil -->
+<div class="card">
+    <!-- BotÃ£o de ediÃ§Ã£o no canto superior direito -->
+    
+
+    <a href="index.php?controller=usuario&method=editarPerfil"
+       style="
+           position: absolute;
+           top: 330px;
+           right: 250px;
+           padding: 8px 12px;
+           background-color: white;
+           border: 1px solid black;
+           text-decoration: none;
+           color: black;
+           font-weight: bold;
+           cursor: pointer;
+           z-index: 10;
+           box-sizing: border-box;
+       ">
+        Editar
+    </a>
+
+    <p><strong>Nome:</strong> <?= htmlspecialchars($dadosParaView['nome']) ?></p>
+    <p><strong>ID do UsuÃ¡rio:</strong> <?= htmlspecialchars($dadosParaView['id']) ?></p>
+    <p><strong>Apelido:</strong> <?= !empty($dadosParaView['apelido']) ? htmlspecialchars($dadosParaView['apelido']) : 'â€”' ?></p>
+    <p><strong>Idade:</strong> <?= htmlspecialchars($dadosParaView['idade']) ?> anos</p>
+</div>
+
+
+
+
+
+=== index.php ===
+<?php
+
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+session_start();
+
+
+// Captura controller e mÃ©todo da URL
+if (!isset($_GET['controller']) && !isset($_GET['method'])) {
+    if (isset($_SESSION['usuario_logado'])) {
+        $controller = 'home';
+        $method = 'index';
+    } else {
+        $controller = 'auth';
+        $method = 'login';
+    }
+} else {
+    $controller = $_GET['controller'];
+    $method = $_GET['method'];
+}
+
+// Rotas livres sem necessidade de login
+$rotasLivres = [
+    'auth/login',
+    'auth/loginSubmit',
+    'auth/cadastro',
+    'auth/cadastroSubmit',
+    'auth/esqueciSenha',
+    'auth/validaDadosParaReset',
+    'auth/novaSenha',
+    'auth/processaNovaSenha',
+    'auth/senhaRedefinida'
+];
+
+$rotaAtual = "$controller/$method";
+
+// Valida login para rotas que nÃ£o sÃ£o livres
+if (!in_array($rotaAtual, $rotasLivres)) {
+    require_once 'controllers/authController.php';
+    if (class_exists('authController') && method_exists('authController', 'checkLogin')) {
+        $sessaoAtiva = authController::checkLogin();
+        if ($sessaoAtiva === false) {
+            header('Location: index.php?controller=auth&method=login&expirado=1');
+            exit;
+        }
+    } else {
+        die("Erro de autenticaÃ§Ã£o: mÃ©todo checkLogin nÃ£o encontrado.");
+    }
+}
+
+// Ajuste para controller 'novaTarefa' -> 'tarefa'
+if ($controller === 'novaTarefa') {
+    $controller = 'tarefa';
+}
+
+// Ajuste para controller 'perfil' -> 'usuario'
+if ($controller === 'perfil') {
+    $controller = 'usuario';
+}
+
+$controllerFile = "controllers/{$controller}Controller.php";
+
+if (file_exists($controllerFile)) {
+    require_once $controllerFile;
+    $controllerClass = $controller . "Controller";
+
+    if (class_exists($controllerClass)) {
+        $obj = new $controllerClass();
+
+        if (method_exists($obj, $method)) {
+            $resultado = $obj->$method();
+
+            // ExceÃ§Ã£o: se controller for 'home' e mÃ©todo 'index', usa 'home.php' como nome da view
+            if ($controller === 'home' && $method === 'index') {
+                $viewFile = "views/home/home.php";
+            } else {
+                $viewFile = "views/{$controller}/{$method}.php";
+            }
+
+            if (file_exists($viewFile)) {
+                if (is_array($resultado)) {
+                    extract($resultado);
+                    $dadosParaView = $resultado;
+                }
+
+                // Captura o conteÃºdo da view via buffer
+                ob_start();
+                require_once $viewFile;
+                $conteudo = ob_get_clean();
+
+                // Verifica se a requisiÃ§Ã£o veio via fetch/AJAX (ex: abertura de modal)
+                $ehAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+                    && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+                if ($ehAjax) {
+                    // RequisiÃ§Ã£o via modal -> devolve sÃ³ o conteÃºdo puro, sem layout
+                    echo $conteudo;
+                } else {
+                    // RequisiÃ§Ã£o normal (acesso direto pela URL) -> mantÃ©m o comportamento atual
+                    if (isset($_SESSION['usuario_logado'])) {
+                        require_once 'layout.php';
+                    } else {
+                        require_once 'layout_public.php';
+                    }
+                }
+
+            } else {
+                echo "Erro: Arquivo da view '$viewFile' nÃ£o encontrado.";
+            }
+        } else {
+            echo "Erro: MÃ©todo '$method' nÃ£o encontrado em $controllerClass.";
+        }
+    } else {
+        echo "Erro: Classe do controller '$controllerClass' nÃ£o encontrada.";
+    }
+} else {
+    echo "Erro: Arquivo do controller '$controllerFile' nÃ£o encontrado.";
+}
+
+
+=== layout.php ===
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+        <!-- Link Ãºnico para CSS -->
+        <link rel="stylesheet" href="public/css/style.css" />
+        <!-- Icones menu -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+        <link rel="icon" type="image/png" href="public/img/favicon-2-do-it.png" />
+
+        <title>LSix 2Do-It.</title>
+    </head>
+
+    <body>
+
+        <!-- Splash -->
+        <?php if(isset($_SESSION['show_splash']) && $_SESSION['show_splash'] === true): ?> 
+        <div id="splash">
+            <div id="loading-screen" class="visible">
+                <img src="public/img/logo-2-do-it.png" alt="Logo" class="logo">
+                <p>Um momento enquanto preparamos tudo...</p>
+                <br><br>
+
+                <div class="icons">
+                    <div class="icon-box"><i class="bi bi-stickies"></i></div>
+                    <div class="icon-box"><i class="bi bi-emoji-laughing"></i></div>
+                    <div class="icon-box"><i class="bi bi-bookmark-check"></i></div>
+                    <div class="icon-box"><i class="bi bi-pin-angle"></i></div>
+                    <div class="icon-box"><i class="bi bi-stars"></i></div>
+                </div>
+            
+
+            <!-- Barra de progresso -->
+            <div class="progress">
+                <div class="progress-bar"></div>
+            </div>
+
+            <!-- Frases abaixo do loading -->
+            <div class="loading-texts">
+                <p id="loading-message"></p>
+            </div>
+        </div>
+            
+            <div id="welcome-screen">
+                <p>Bem-vindo</p>
+            </div>
+    </div>
+
+        <?php 
+        // reseta a flag para nÃ£o repetir
+        $_SESSION['show_splash'] = false; 
+        endif; ?>
+
+        <nav class="menu-lateral-slide">
+            <div class="menu-tab" onclick="toggleMenu()">
+    <i class="bi bi-list icone-expandido"></i>
+    <i class="bi bi-three-dots-vertical icone-retraido"></i>
+</div>
+
+            <div class="titulo-menu">
+                <span class="logo-completa">
+                    <img src="public/img/logo-2-do-it.png" alt="2Do it.">
+                </span>
+                <span class="logo-reduzida">
+                    <img src="public/img/favicon-2-do-it.png" alt="2Do it">
+                </span>
+                
+            </div>
+            <ul>
+                <li><a href="#" onclick="abrirModal()">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Nova Tarefa</span>
+                    </a>
+                </li>
+
+                <li><a href="index.php?controller=home&method=index">
+                    <i class="bi bi-house"></i>
+                    <span>Home</span>
+                    </a>
+                </li>
+
+                <li><a href="index.php?controller=tarefa&method=gestaoTarefa">
+                    <i class="bi bi-card-checklist"></i>
+                    <span>Minhas tarefas</span>
+                    </a>
+                </li>
+
+                <li><a href="index.php?controller=estatisticas&method=estatisticas">
+                    <i class="bi bi-bar-chart"></i>
+                    <span>EstatÃ­sticas</span>
+                    </a>
+                </li>
+        
+                <li><a href="index.php?controller=perfil&method=meuPerfil">
+                    <i class="bi bi-person"></i>
+                    <span>Perfil</span>
+                    </a>
+                </li>
+        
+                <li><a href="#">
+                    <i class="bi bi-card-image"></i>
+                    <span>Meu espaÃ§o</span>
+                    </a>
+                </li>
+
+                <li><a href="#">
+                    <i class="bi bi-trash"></i>
+                    <span>Triturador de papel</span>
+                    </a>
+                </li>
+
+                 <li><a href="index.php?controller=definicoes&method=definicoes">
+                    <i class="bi bi-gear"></i>
+                    <span>DefiniÃ§Ãµes</span>
+                    </a>
+                </li>
+
+                <li onmouseover="this.style.backgroundColor='#ff000090'; this.style.color='black'" onmouseout="this.style.backgroundColor='white'; this.style.color='black'">
+                <a href="index.php?controller=auth&method=logout">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Sair</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        
+
+        <div class="main-content">
+            <?php
+                if (isset($conteudo)) {echo $conteudo;}
+                // ConteÃºdo das views injetado aqui
+            ?>
+            <div class="area-segura"></div>
+        </div>
+
+        <!-- Footer fixo -->
+        <footer class="footer">
+            <p>
+                &copy; <?= date('Y') ?> LSiX 2Do-it. Todos os direitos reservados.
+            </p>
+        </footer>
+
+        <!-- Modal -->
+        <div id="overlay">
+            <div id="modalContent">
+        <!-- ConteÃºdo da view serÃ¡ injetado aqui -->
+            </div>
+        </div>
+
+        
+
+
+        
+
+
+<!-- Script Ãºnico para JS -->
+        <script src="public/js/script.js"></script> 
+    </body>
+
+</html>
+
+
+=== layout_public.php ===
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Link CSS pÃºblico mÃ­nimo -->
+    <link rel="stylesheet" href="public/css/style.css" />
+
+    <title>LSix 2Do-It.</title>
+    <link rel="icon" type="image/png" href="public/img/favicon-2-do-it.png" />
+</head>
+
+<body>
+    <div class="main-content">
+        <?php if (isset($conteudo)) { echo $conteudo; } ?>
+    </div>
+
+    <script src="public/js/script.js"></script>
+</body>
+
+</html>
+
+
+=== test.php ===
+<?php
+$conn = new mysqli("127.0.0.1", "root", "", "projeto_x", 3308);
+if ($conn->connect_error) {
+    die("Erro de conexÃ£o: " . $conn->connect_error);
+} else {
+    echo "ConexÃ£o OK!";
+}
+$conn->close();
+
+
