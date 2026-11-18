@@ -1,28 +1,14 @@
-<!-- Botão de retorno padrão no canto superior esquerdo -->
-<div style="position: absolute; top: 20px; left: 20px;">
-    <a href="index.php?controller=home&method=index"
-       style="
-           display: inline-block;
-           padding: 10px 15px;
-           background-color: white;
-           border: 1px solid black;
-           text-decoration: none;
-           color: black;
-           font-weight: bold;
-       ">
-        &#8592; Voltar
-    </a>
-</div>
+<link rel="icon" type="image/png" href="public/img/favicon-2-do-it.png" />
 
 
 <!-- Card principal -->
-<div class="card card-headers">
+<div class="card-headers">
     <h1>Definições</h1>
     <p>Nesta seção, você pode ajustar as preferências da sua conta e da aplicação.</p>
 </div>
 
 <!-- Breadcrumb -->
-<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+<div class="breadcrumbs">
     <p style="font-size: 14px; color: #555;">
         <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
             Home
@@ -31,22 +17,15 @@
 </div>
 
 <!-- Card com dados de definições -->
-<div style="
-    position: relative;
-    border: 1px solid black;
-    padding: 20px;
-    margin: 20px 220px 80px 220px;
-    background: white;
-    box-sizing: border-box;
-">
+<div class="card">
 
     <!-- Abas (Geral | Minha senha) -->
-    <div style="display: flex; border-bottom: 1px solid black; margin-bottom: 20px;">
-        <button onclick="mostrarAba('geral')" id="abaGeral" style="flex: 1; padding: 10px; border: none; background-color: white; font-weight: bold; cursor: pointer; border-bottom: 2px solid black;">
-            Geral
+    <div style="display: flex; margin-bottom: 20px; gap: 20px;">
+        <button class="button-aba-settings" onclick="mostrarAba('geral')" id="abaGeral"  style="border-bottom: 5px solid black;">
+            <spam>Geral</spam>
         </button>
-        <button onclick="mostrarAba('senha')" id="abaSenha" style="flex: 1; padding: 10px; border: none; background-color: white; font-weight: bold; cursor: pointer;">
-            Minha senha
+        <button class="button-aba-settings" onclick="mostrarAba('senha')" id="abaSenha">
+            <spam>Minha senha</spam>
         </button>
     </div>
 
@@ -114,13 +93,7 @@
             <input type="password" id="confirmarSenha" name="confirmarSenha" style="padding: 8px; width: 300px; border: 1px solid black;">
         </div>
 
-        <button style="
-            padding: 10px 20px;
-            background-color: white;
-            border: 1px solid black;
-            font-weight: bold;
-            cursor: pointer;
-        ">
+        <button> 
             Salvar nova senha
         </button>
     </div>
@@ -212,16 +185,3 @@ label {
     }
 </script>
 
-<!-- Footer fixo padrão -->
-<footer style="
-    position: fixed;
-    border: 1px solid black;
-    padding: 10px 20px;
-    bottom: 0;
-    left: 220px;
-    right: 220px;
-    background: #fff;
-    z-index: 999;
-">
-    <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
-</footer>

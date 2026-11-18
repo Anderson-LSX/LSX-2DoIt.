@@ -228,5 +228,33 @@ public function atualizar() {
     }
 }
 
+public function apagarTarefa() {
+    $taskId = $_POST['task_id'] ?? $_GET['task_id'] ?? null;
+
+    if (!$taskId) {
+        $_SESSION['erro'] = 'Tarefa não identificada.';
+        header("Location: index.php?controller=tarefa&method=gestaoTarefa");
+        exit;
+    }
+
+    $usu_id = $_SESSION['usuario_id'] ?? null;
+    if (!$usu_id) {
+        header("Location: index.php?controller=auth&method=login&expirado=1");
+        exit;
+    }
+
+    $tarefaModel = new tarefaModel();
+    $resultado = $tarefaModel->apagarTarefa($taskId, $usu_id);
+
+    if ($resultado['sucesso']) {
+        $_SESSION['sucesso'] = 'Tarefa apagada com sucesso!';
+    } else {
+        $_SESSION['erro'] = $resultado['erro'] ?? 'Erro ao apagar a tarefa.';
+    }
+
+    header("Location: index.php?controller=tarefa&method=gestaoTarefa");
+    exit;
+}
+
 
 }

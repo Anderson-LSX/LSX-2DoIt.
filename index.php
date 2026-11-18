@@ -7,24 +7,6 @@ error_reporting(E_ALL);
 
 session_start();
 
-// Configuração para destruir a sessão após x segundos de inatividade 
-if (isset($_SESSION['ultimo_acesso']) && (time() - $_SESSION['ultimo_acesso'] > 1800)) {
-
-    // Antes de destruir ou limpar a sessão, seta flag para avisar que sessão expirou
-    $_SESSION['sessao_expirada'] = true;
-
-    // Remove dados de login da sessão para deslogar o usuário
-    unset($_SESSION['usuario_logado'], $_SESSION['usuario_nome'], $_SESSION['usuario_id']);
-
-    // Atualiza o último acesso para evitar redirecionamento em loop
-    $_SESSION['ultimo_acesso'] = time();
-
-    header("Location: index.php?controller=auth&method=login");
-    exit;
-}
-
-// Atualiza o timestamp da última atividade
-$_SESSION['ultimo_acesso'] = time();
 
 // Captura controller e método da URL
 if (!isset($_GET['controller']) && !isset($_GET['method'])) {
@@ -49,7 +31,8 @@ $rotasLivres = [
     'auth/esqueciSenha',
     'auth/validaDadosParaReset',
     'auth/novaSenha',
-    'auth/processaNovaSenha'
+    'auth/processaNovaSenha',
+    'auth/senhaRedefinida'
 ];
 
 $rotaAtual = "$controller/$method";
@@ -108,8 +91,21 @@ if (file_exists($controllerFile)) {
                 require_once $viewFile;
                 $conteudo = ob_get_clean();
 
-                // Inclui layout.php, que deve usar $conteudo e $dadosParaView
-                require_once 'layout.php';
+                // Verifica se a requisição veio via fetch/AJAX (ex: abertura de modal)
+                $ehAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+                    && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+                if ($ehAjax) {
+                    // Requisição via modal -> devolve só o conteúdo puro, sem layout
+                    echo $conteudo;
+                } else {
+                    // Requisição normal (acesso direto pela URL) -> mantém o comportamento atual
+                    if (isset($_SESSION['usuario_logado'])) {
+                        require_once 'layout.php';
+                    } else {
+                        require_once 'layout_public.php';
+                    }
+                }
 
             } else {
                 echo "Erro: Arquivo da view '$viewFile' não encontrado.";

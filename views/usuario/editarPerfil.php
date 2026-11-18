@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Editar Perfil</title>
+    <link rel="icon" type="image/png" href="public/img/favicon-2-do-it.png" />
 </head>
 <body>
 
@@ -18,11 +19,7 @@
 <!-- Card principal -->
 <div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
 
-    <!-- Botão X no canto superior direito -->
-    <a href="index.php?controller=usuario&method=meuPerfil" 
-       style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
-        X
-    </a>
+    
 
     <h1>Editar Perfil</h1>
     

@@ -15,7 +15,7 @@
 </div>
 
 <!-- Card principal -->
-<div class="card card-headers">
+<div class="card-headers">
 
     <!-- Título -->
     <h1>Estatísticas</h1>
@@ -26,7 +26,7 @@
 </div>
 
 <!-- Breadcrumb -->
-<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+<div class="breadcrumbs">
     <p style="font-size: 14px; color: #555;">
         <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
             Home
@@ -34,16 +34,10 @@
     </p>
 </div>
 
-<!-- Footer fixo padrão -->
-<footer style="
-    position: fixed;
-    border: 1px solid black;
-    padding: 10px 20px;
-    bottom: 0;
-    left: 220px;
-    right: 220px;
-    background: #fff;
-    z-index: 999;
-">
-    <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
-</footer>
+<div class="card">
+    <p><strong>Em breve...</strong></p>
+    <!-- Texto Lorem Ipsum -->
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+</div>
+
+

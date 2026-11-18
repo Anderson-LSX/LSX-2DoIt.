@@ -39,13 +39,7 @@
 ">
 
 <!-- Card de recuperação de senha -->
-<div style="
-    border: 1px solid black;
-    padding: 20px;
-    max-width: 400px;
-    width: 100%;
-    box-sizing: border-box;
-">
+<div class="card-login">
 
 <h1>Esqueci minha senha</h1>
         <h2 style="font-size: 16px;">Passo 1 de 2: Digite seus dados de acesso para redefinir sua senha</h2>

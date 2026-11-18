@@ -1,80 +1,80 @@
 <?php
-// $dadosParaView traz os dados da tarefa para preencher os campos no formulário
+if (!isset($dadosParaView)) {
+    echo "ERRO: dadosParaView não está definido.";
+    exit;
+}
+
+// Detecta se está sendo carregada diretamente (fora do modal via fetch)
+$direto = !isset($_SERVER['HTTP_X_REQUESTED_WITH']);
 ?>
 
-<!-- Breadcrumb -->
-<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
-    <p style="font-size: 14px; color: #555;">
-        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">Home</a> &gt;
-        <a href="index.php?controller=tarefa&method=gestaoTarefa" style="text-decoration: none; color: #555;">Minhas tarefas</a> &gt;
-        Editar
-    </p>
-</div>
+<?php if ($direto): ?>
+    <!-- Breadcrumb -->
+    <div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
+        <p style="font-size: 14px; color: #555;">
+            <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+                Home
+            </a> &gt; 
+            <a href="index.php?controller=tarefa&method=gestaoTarefa" style="text-decoration: none; color: #555;">
+                Minhas tarefas
+            </a> &gt; 
+            Editar
+        </p>
+    </div>
 
-<!-- Card principal -->
-<div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
-    
-<!-- Botão X no canto superior direito -->
-    <a href="index.php?controller=tarefa&method=gestaoTarefa" 
-       style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
-        X
-    </a>
+    <!-- Card principal -->
+    <div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
+        <!-- Botão X para voltar -->
+        <a href="index.php?controller=tarefa&method=gestaoTarefa" 
+           style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
+            X
+        </a>
 
-<h1>Editar</h1>
+        <!-- Título -->
+        <h1>Editar Tarefa</h1>
+<?php else: ?>
+    <!-- Quando for modal -->
+    <h2>Editar Tarefa</h2>
+<?php endif; ?>
 
-    <form action="index.php?controller=tarefa&method=atualizar" method="POST" style="max-width: 600px;">
-        <input type="hidden" name="task_id" value="<?= htmlspecialchars($dadosParaView['id'] ?? '') ?>">
+<!-- Formulário de edição -->
+<form method="POST" action="index.php?controller=tarefa&method=atualizar" class="modal-form" style="margin-top: 20px;">
+    <input type="hidden" name="task_id" value="<?= htmlspecialchars($dadosParaView['id'] ?? '') ?>">
 
-        <label for="titulo">Título:</label><br>
-        <input type="text" id="titulo" name="titulo" required
-               value="<?= htmlspecialchars($dadosParaView['titulo'] ?? '') ?>" style="width: 100%;"><br><br>
+    <label for="titulo">Título*</label><br>
+    <input type="text" id="titulo" name="titulo" required
+        value="<?= htmlspecialchars($dadosParaView['titulo'] ?? '') ?>"><br>
 
-        <label for="tipotarefa">Tipo da tarefa:</label><br>
-        <input type="text" id="tipotarefa" name="tipotarefa" required
-               value="<?= htmlspecialchars($dadosParaView['tipo'] ?? '') ?>" style="width: 100%;"><br><br>
+    <label for="tipotarefa">Tipo*</label><br>
+    <input type="text" id="tipotarefa" name="tipotarefa" required
+        value="<?= htmlspecialchars($dadosParaView['tipo'] ?? '') ?>"><br>
 
-        <label for="prioridade">Prioridade:</label><br>
-        <select id="prioridade" name="prioridade" required style="width: 100%;">
-            <?php
-            $prioridades = ['alta', 'média', 'baixa'];
-            $prioridadeSelecionada = strtolower($dadosParaView['prioridade'] ?? 'média');
-            foreach ($prioridades as $p):
-            ?>
-                <option value="<?= $p ?>" <?= ($p === $prioridadeSelecionada) ? 'selected' : '' ?>>
-                    <?= ucfirst($p) ?>
-                </option>
-            <?php endforeach; ?>
-        </select><br><br>
+    <label>Prioridade*</label><br>
+    <div class="radiobox-modais">
+        <label><input type="radio" name="prioridade" value="baixa" <?= (isset($dadosParaView['prioridade']) && strtolower($dadosParaView['prioridade']) === 'baixa') ? 'checked' : '' ?>> Baixa</label>
+        <label><input type="radio" name="prioridade" value="média" <?= (isset($dadosParaView['prioridade']) && strtolower($dadosParaView['prioridade']) === 'média') ? 'checked' : '' ?>> Média</label>
+        <label><input type="radio" name="prioridade" value="alta" <?= (isset($dadosParaView['prioridade']) && strtolower($dadosParaView['prioridade']) === 'alta') ? 'checked' : '' ?>> Alta</label>
+    </div>
 
-        <label for="datafim">Data de vencimento:</label><br>
-        <input type="datetime-local" id="datafim" name="datafim" required
-               value="<?= htmlspecialchars($dadosParaView['dataVencimento'] ?? '') ?>" style="width: 100%;"><br><br>
+    <label for="datafim">Data de Vencimento*</label><br>
+    <input type="datetime-local" id="datafim" name="datafim"
+        value="<?= isset($dadosParaView['dataVencimento']) ? htmlspecialchars($dadosParaView['dataVencimento']) : '' ?>">
 
-        <!-- Campo Status -->
-        <label for="status">Status:</label><br>
-        <select id="status" name="status" required style="width: 100%;">
-            <?php
-            $statuses = ['pendente', 'concluída', 'cancelada'];
-            $statusSelecionado = strtolower($dadosParaView['status'] ?? 'pendente');
-            foreach ($statuses as $s):
-            ?>
-                <option value="<?= $s ?>" <?= ($s === $statusSelecionado) ? 'selected' : '' ?>>
-                    <?= ucfirst($s) ?>
-                </option>
-            <?php endforeach; ?>
-        </select><br><br>
-        
-        <label for="descricao">Descrição:</label><br>
-        <textarea id="descricao" name="descricao" rows="5" maxlength="280"
-                  style="width: 100%;"><?= htmlspecialchars($dadosParaView['descricao'] ?? '') ?></textarea><br><br>
+    <label for="descricao">Descrição</label><br>
+    <textarea id="descricao" name="descricao"
+        style="height: 120px; resize: none; overflow-y: auto;"
+        maxlength="280"><?= htmlspecialchars($dadosParaView['descricao'] ?? '') ?></textarea>
 
-        <button type="submit">
-        Salvar alterações</button>
-        
-    </form>
-</div>
+    <div class="acoes-modal">
+        <button type="submit">Salvar Alterações</button>
+    </div>
+</form>
 
-<!-- Rodapé padrão -->
-<footer style="position: fixed; border: 1px solid black; padding: 20px; bottom: 0; left: 220px; right: 220px; background: none; z-index: 999;">
-    <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
-</footer>
+<?php if ($direto): ?>
+    </div> <!-- fecha card -->
+
+    <!-- Rodapé padrão -->
+    <footer style="position: fixed; border: 1px solid black; padding: 20px; bottom: 0; left: 220px; right: 220px; background: none; z-index: 999;">
+        <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
+    </footer>
+<?php endif; ?>

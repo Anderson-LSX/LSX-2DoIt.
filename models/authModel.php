@@ -4,21 +4,25 @@ class authModel {
     private $conn;
 
     public function __construct() {
+        // Cria conexão com o banco de dados
         $this->conn = new mysqli("127.0.0.1", "root", "12345", "projeto_x", 3308);
 
+        // Verifica erro de conexão
         if ($this->conn->connect_error) {
             die("Erro de conexão: " . $this->conn->connect_error);
         }
     }
 
+    // Função para buscar usuario por Login
     public function findByLogin(string $login) {
+        // Prepara query SQL segura usando prepared statement
         $stmt = $this->conn->prepare("SELECT usu_id, usu_nome, usu_apelido, usu_idade, usu_login, usu_senha FROM usuario WHERE usu_login = ?");
-        $stmt->bind_param("s", $login);
+        $stmt->bind_param("s", $login); // Substitui ? pelo login do usuário
         $stmt->execute();
-        $result = $stmt->get_result();
-        $usuario = $result->fetch_assoc();
-        $stmt->close();
-        return $usuario ?: null;
+        $result = $stmt->get_result(); // Executa e captura resultado
+        $usuario = $result->fetch_assoc(); // Retorna array associativo do usuário
+        $stmt->close(); // Fecha statement
+        return $usuario ?: null; // Retorna null se não encontrar
     }
 
     public function existsLogin(string $login): bool {
@@ -65,7 +69,7 @@ class authModel {
     }
 
     public function __destruct() {
-        $this->close();
+        $this->close(); // Fecha a conexão ao final da execução
     }
 
     public function close() {

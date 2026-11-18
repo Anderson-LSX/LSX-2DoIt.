@@ -5,6 +5,7 @@ require_once __DIR__ . '/../models/authModel.php';
 class authController {
 
     private $authModel; // atributo para a model
+    private const SESSION_TIMEOUT = 3600; // tempo de inatividade em segundos
 
     public function __construct() {
         $this->authModel = new authModel();
@@ -14,41 +15,37 @@ class authController {
     // Método estático para checar se o usuário está logado e sessão válida
     
     public static function checkLogin() {
-        // Se não tiver o índice na sessão, não está logado
         if (!isset($_SESSION['usuario_logado'])) {
             return false;
         }
 
-        // Verifica se houve inatividade maior que 600 segundos (10 minutos)
-        if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 60)) {
-            // Limpa e destrói a sessão para forçar logout
+        if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > self::SESSION_TIMEOUT)) {
             session_unset();
             session_destroy();
             return false;
         }
 
-        // Atualiza o tempo da última atividade
         $_SESSION['LAST_ACTIVITY'] = time();
         return true;
     }
 
     // Exibe a página de login
     public function login() {
+        // Inicializa variáveis que serão enviadas para a view
         $sessao_expirada = false;
         $erro_login = '';
 
-        // Se a sessão informou que houve expiração (definida em index.php)
-        if (isset($_SESSION['sessao_expirada']) && $_SESSION['sessao_expirada'] === true) {
+        if (isset($_GET['expirado']) && $_GET['expirado'] == 1) {
             $sessao_expirada = true;
-            unset($_SESSION['sessao_expirada']);
         }
 
         // Busca mensagem de erro de login na sessão, se existir
         if (isset($_SESSION['erro_login'])) {
             $erro_login = $_SESSION['erro_login'];
-            unset($_SESSION['erro_login']);
+            unset($_SESSION['erro_login']); // Limpa o erro para próxima requisição
         }
 
+        // Retorna os dados que serão usados na view
         return [
             'sessao_expirada' => $sessao_expirada,
             'erro_login' => $erro_login
@@ -57,26 +54,35 @@ class authController {
 
     // Processa o formulário de login enviado pelo usuário
     public function loginSubmit() {
-        $login = trim($_POST['login'] ?? '');
-        $senha = $_POST['senha'] ?? '';
+        $login = trim($_POST['login'] ?? ''); // Remove espaços extras
+        $senha = $_POST['senha'] ?? ''; // Captura senha
 
+        // Validação básica: campos obrigatórios
         if (empty($login) || empty($senha)) {
             $_SESSION['erro_login'] = "Login e senha são obrigatórios.";
             header("Location: index.php?controller=auth&method=login");
             exit;
         }
 
+         // Busca usuário no banco via model
         $usuario = $this->authModel->findByLogin($login);
 
+        // Valida se usuário existe e senha está correta
         if ($usuario && password_verify($senha, $usuario['usu_senha'])) {
+            // Cria sessão para usuário logado
             $_SESSION['usuario_logado'] = $login;
             $_SESSION['usuario_nome'] = $usuario['usu_nome'];
             $_SESSION['usuario_id'] = $usuario['usu_id'];
+            $_SESSION['LAST_ACTIVITY'] = time();
 
+            // Flag para mostrar splash apenas após login
+            $_SESSION['show_splash'] = true;
 
+            // Redireciona para página inicial após login
             header("Location: index.php?controller=home&method=index");
             exit;
         } else {
+            // Usuário não encontrado ou senha incorreta
             $_SESSION['erro_login'] = $usuario ? "Senha incorreta." : "Usuário não encontrado.";
             header("Location: index.php?controller=auth&method=login");
             exit;
@@ -118,7 +124,7 @@ class authController {
             exit;
         }
 
-        $usuario = $this->usuarioModel->findByNomeIdadeLogin($nome, (int)$idade, $login);
+        $usuario = $this->authModel->findByNomeIdadeLogin($nome, (int)$idade, $login);
 
         if ($usuario) {
             $_SESSION['reset_login'] = $login;
@@ -137,29 +143,40 @@ class authController {
         if (!isset($_SESSION['reset_login'])) {
             return ['erro' => 'Sessão expirada. Recomece o processo.'];
         }
-        return [];
+
+        $erro = $_SESSION['erro_nova_senha'] ?? null;
+        unset($_SESSION['erro_nova_senha']);
+
+        return ['erro' => $erro];
     }
 
     public function processaNovaSenha() {
         if (!isset($_SESSION['reset_login'])) {
-            return ['erro' => 'Sessão expirada. Recomece o processo.'];
+            header('Location: index.php?controller=auth&method=esqueciSenha');
+            exit;
         }
 
-        $novaSenha = $_POST['nova_senha'] ?? '';
+        $novaSenha = trim($_POST['nova_senha'] ?? '');
         $login = $_SESSION['reset_login'];
 
-        if (!$novaSenha) {
-            return ['erro' => 'Senha inválida.'];
+        if ($novaSenha === '') {
+            $_SESSION['erro_nova_senha'] = 'Senha inválida.';
+            header('Location: index.php?controller=auth&method=novaSenha');
+            exit;
         }
 
         $senhaHash = password_hash($novaSenha, PASSWORD_DEFAULT);
-        $sucesso = $this->usuarioModel->updateSenha($login, $senhaHash);
+        $sucesso = $this->authModel->updateSenha($login, $senhaHash);
 
         if ($sucesso) {
             unset($_SESSION['reset_login']);
             header('Location: index.php?controller=auth&method=senhaRedefinida');
             exit;
         }
+
+        $_SESSION['erro_nova_senha'] = 'Falha ao atualizar senha. Tente novamente.';
+        header('Location: index.php?controller=auth&method=novaSenha');
+        exit;
     }
 
     public function senhaRedefinida() {
@@ -202,7 +219,7 @@ class authController {
         $erroCheckbox = null;
 
         // Verifica se login já existe - prioridade alta
-        if ($this->usuarioModel->existsLogin($login)) {
+        if ($this->authModel->existsLogin($login)) {
             $erroPrincipal = "Login já está em uso. Escolha outro.";
         } else {
             if ($nome === '' || $idade === '' || $login === '') {
@@ -246,7 +263,7 @@ class authController {
             'senhaHash' => $senhaHash
         ];
 
-        $inseriu = $this->usuarioModel->insertUser($dadosUsuario);
+        $inseriu = $this->authModel->insertUser($dadosUsuario);
 
         if ($inseriu) {
             return ['sucesso' => 'Cadastro realizado com sucesso! Faça login a seguir.'];

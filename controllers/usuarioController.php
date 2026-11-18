@@ -10,9 +10,9 @@ class usuarioController {
             exit;
         }
 
-        require_once __DIR__ . '/../models/UsuarioModel.php';
+        require_once __DIR__ . '/../models/usuarioModel.php';
 
-        $usuarioModel = new UsuarioModel();
+        $usuarioModel = new usuarioModel();
 
         $id = $_SESSION['usuario_id'];
 
@@ -39,9 +39,9 @@ class usuarioController {
             exit;
         }
 
-        require_once __DIR__ . '/../models/UsuarioModel.php';
+        require_once __DIR__ . '/../models/usuarioModel.php';
 
-        $usuarioModel = new UsuarioModel();
+        $usuarioModel = new usuarioModel();
 
         $id = $_SESSION['usuario_id'];
 
@@ -61,7 +61,7 @@ class usuarioController {
         }
     }
 
-public function salvarEdicao()
+    public function salvarEdicao()
 {
     // Verifica se o usuário está logado
     if (!isset($_SESSION['usuario_id'])) {
@@ -84,8 +84,8 @@ public function salvarEdicao()
     }
 
     // Inclui o model para poder atualizar o usuário
-    require_once __DIR__ . '/../models/UsuarioModel.php';
-    $usuarioModel = new UsuarioModel();
+    require_once __DIR__ . '/../models/usuarioModel.php';
+    $usuarioModel = new usuarioModel();
 
     // Chama o método para atualizar o usuário no banco de dados
     $sucesso = $usuarioModel->atualizarUsuario($id, $nome, $apelido, $idade);
@@ -99,7 +99,7 @@ public function salvarEdicao()
         echo "Erro ao atualizar os dados.";
         exit;
     }
-}
+    }
 
 
 

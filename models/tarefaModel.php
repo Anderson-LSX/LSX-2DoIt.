@@ -166,5 +166,22 @@ public function atualizarTarefa(array $dados): array {
     }
 }
 
+public function apagarTarefa($taskId, $usu_id): array {
+    try {
+        $sql = "DELETE FROM TAREFAS WHERE TASK_ID = :task_id AND USU_ID = :usu_id";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':task_id', $taskId, PDO::PARAM_INT);
+        $stmt->bindParam(':usu_id', $usu_id, PDO::PARAM_INT);
+        $stmt->execute();
+
+        if ($stmt->rowCount() > 0) {
+            return ['sucesso' => true];
+        } else {
+            return ['sucesso' => false, 'erro' => 'Tarefa não encontrada ou não pertence ao usuário.'];
+        }
+    } catch (PDOException $e) {
+        return ['sucesso' => false, 'erro' => 'Erro ao apagar tarefa: ' . $e->getMessage()];
+    }
+}
 
 }

@@ -14,8 +14,6 @@
     </a>
 </div>
 
-
-
 <?php if (!empty($dadosParaView['sucesso'])): ?>
     <div style="color: green; font-weight: bold; margin: 10px 220px;">
         <?= htmlspecialchars($dadosParaView['sucesso']) ?>
@@ -23,31 +21,28 @@
 <?php endif; ?>
 
 <!-- Card header -->
-<div class="card card-headers">
+<div class="card-headers">
     <h1>Minhas Tarefas</h1>
     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
 </div>
 
 <!-- Breadcrumb -->
-<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
-    <p style="font-size: 14px; color: #555;">
-        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+<div class="breadcrumbs">
+    <p class="breadcrumbs-p">
+        <a class="breadcrumbs-a" href="index.php?controller=home&method=index">
             Home
         </a> &gt; Minhas tarefas
     </p>
 </div>
 
+<div class="card">
 <!-- Botão nova tarefa -->
-<div style="margin: 20px 220px 10px 220px;">
-    <form action="index.php" method="GET" style="display: inline;">
-        <input type="hidden" name="controller" value="novaTarefa">
-        <input type="hidden" name="method" value="novaTarefa">
-        <button type="submit">+ Nova Tarefa</button>
-    </form>
+<div>
+    <button onclick="abrirModal()">+ Nova Tarefa</button>
 </div>
-
+<br>
 <!-- Tabela para gestão de tarefas -->
-<table border="1" cellpadding="8" cellspacing="0" style="margin: 0 220px 20px 220px; width: calc(100% - 440px); border-collapse: collapse;">
+<table class="tabela-tarefas">
     <thead>
         <tr>
             <th>Título</th>
@@ -60,70 +55,42 @@
     </thead>
     <tbody>
         <?php if (!empty($tarefas)): ?>
-
-                  <?php foreach ($tarefas as $tarefa): ?>
+            <?php foreach ($tarefas as $tarefa): ?>
                 <tr>
                     <td><?= htmlspecialchars($tarefa['TASK_TITULO']) ?></td>
                     <td><?= htmlspecialchars($tarefa['TASK_TIPOTAREFA']) ?></td>
                     <td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($tarefa['TASK_DATAFIM']))) ?></td>
-                    <td><?= htmlspecialchars(ucfirst($tarefa['TASK_PRIORIDADE'])) ?></td>
-                    <td><?= htmlspecialchars(ucfirst($tarefa['TASK_STATUS'])) ?></td>
-                    <td style="text-align: center;">
-
-                        <!-- Botão Ver usando GET -->
-                        <a href="index.php?controller=tarefa&method=detalhesTarefa&task_id=<?= $tarefa['TASK_ID'] ?>"
-                           style="text-decoration: none;">
-                            <button type="button">Ver</button>
-                        </a>
-
-                        <!-- Botão Editar (mantido com POST) -->
-                        <a href="index.php?controller=tarefa&method=editarTarefa&task_id=<?= $tarefa['TASK_ID'] ?>"
-                            style="text-decoration: none;">
-                            <button type="button">Editar</button>
-                        </a>
-
-                        <!-- Botão Apagar (mantido com POST por enquanto) -->
-                        <form action="index.php?controller=tarefa&method=apagar" method="POST" style="display: inline;">
-                            <input type="hidden" name="task_id" value="<?= $tarefa['TASK_ID'] ?>">
-                            <button type="submit" onclick="return confirm('Confirma exclusão?')">Apagar</button>
-                        </form>
-
+                    <td>
+                        <span class="tag prioridade-<?= strtolower($tarefa['TASK_PRIORIDADE']) ?>">
+                            <?= htmlspecialchars(ucfirst($tarefa['TASK_PRIORIDADE'])) ?>
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status status-<?= strtolower($tarefa['TASK_STATUS']) ?>">
+                            <?= htmlspecialchars(ucfirst($tarefa['TASK_STATUS'])) ?>
+                        </span>
+                    </td>
+                    <td class="acoes">
+                        <button class="btn ver" onclick="abrirModalVer(<?= $tarefa['TASK_ID'] ?>)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn editar" onclick="abrirModalEditar(<?= $tarefa['TASK_ID'] ?>)">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn apagar" onclick="abrirModalApagar(<?= $tarefa['TASK_ID'] ?>)">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </td>
                 </tr>
             <?php endforeach; ?>
         <?php else: ?>
             <tr>
-                <td colspan="6" style="text-align:center;">Nenhuma tarefa encontrada.</td>
+                <td colspan="6" class="sem-tarefas">Nenhuma tarefa encontrada.</td>
             </tr>
         <?php endif; ?>
     </tbody>
 </table>
 
-<!-- Footer fixo padrão -->
-<footer style="
-    position: fixed;
-    border: 1px solid black;
-    padding: 10px 20px;
-    bottom: 0;
-    left: 220px;
-    right: 220px;
-    background: #fff;
-    z-index: 999;
-">
-    <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
-</footer>
+<div class="area-segura"></div>
 
-<!-- Footer fixo 
-<footer style="
-    position: fixed;
-    border: 1px solid black;
-    padding: 10px 20px;
-    bottom: 0;
-    left: 220px; 
-    right: 220px;
-    background: #fff;
-    z-index: 999;
-">
-    <p align="right">&copy; <?= htmlspecialchars($dadosParaView['anoAtual']) ?> Organizador. Todos os direitos reservados.</p>
-</footer>
-<div style="height: 80px;"></div> -->
+</div>

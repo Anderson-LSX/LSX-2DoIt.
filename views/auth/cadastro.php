@@ -38,17 +38,11 @@ $aceitaTermosChecked = $dadosParaView['aceitaTermosChecked'] ?? '';  // Estado d
 <body style="display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
 
     <!-- Div que funciona como card contendo o formulário, com borda preta fina e padding -->
-    <div style="
-        border: 1px solid black;         /* Borda preta fina */
-        padding: 20px 40px;              /* Espaçamento interno vertical e horizontal */
-        max-width: 400px;                /* Largura máxima do card */
-        width: 100%;                    /* Ocupa 100% do container pai até o max-width */
-        box-sizing: border-box;          /* Inclui borda e padding na largura total */
-        text-align: center;              /* Centraliza texto dentro do card */
-    ">
+    <div class="card-login">
 
         <!-- Título da página -->
         <h1>Cadastro de Usuário</h1>
+        <p style="font-size: 16px;">Preencha os campos abaixo para criar sua conta</p>
 
         <!-- Exibe a mensagem principal de erro, se existir -->
         <?php if ($erroPrincipal): ?>
