@@ -9,19 +9,19 @@
 
 <!-- Breadcrumb -->
 <div class="breadcrumbs">
-    <p style="font-size: 14px; color: #555;">
-        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+    <p class="breadcrumbs-p">
+        <a class="breadcrumbs-a" href="index.php?controller=home&method=index">
             Home
         </a> &gt; Definições
     </p>
 </div>
 
 <!-- Card com dados de definições -->
-<div class="card">
+<div class="card card-definicoes">
 
     <!-- Abas (Geral | Minha senha) -->
-    <div style="display: flex; margin-bottom: 20px; gap: 20px;">
-        <button class="button-aba-settings" onclick="mostrarAba('geral')" id="abaGeral"  style="border-bottom: 5px solid black;">
+    <div class="abas-settings">
+        <button class="button-aba-settings aba-inicial" onclick="mostrarAba('geral')" id="abaGeral">
             <spam>Geral</spam>
         </button>
         <button class="button-aba-settings" onclick="mostrarAba('senha')" id="abaSenha">
@@ -34,9 +34,9 @@
         <h2>Configurações Gerais</h2>
 
         <!-- Tema -->
-        <div style="margin-bottom: 20px;">
+        <div class="campo-form">
             <label for="tema"><strong>Tema:</strong></label><br>
-            <select id="tema" name="tema" style="padding: 8px; width: 200px; border: 1px solid black;">
+            <select id="tema" name="tema" class="input-config input-config-200">
                 <option value="default">Default</option>
                 <option value="indigo">Indigo</option>
                 <option value="clear">Clear</option>
@@ -46,51 +46,51 @@
         </div>
 
         <!-- Saudação dinâmica -->
-        <div style="margin-bottom: 20px;">
-            <label style="display: flex; align-items: center; cursor: pointer;">
-                <span style="margin-right: 10px;">Saudação dinâmica     </span>
-                <input type="checkbox" id="toggleSaudacaoDinamica" style="display:none;">
+        <div class="campo-form">
+            <label class="label-toggle">
+                <span class="label-toggle-texto">Saudação dinâmica     </span>
+                <input type="checkbox" id="toggleSaudacaoDinamica" class="oculto">
                 <span class="switch"></span>
             </label>
         </div>
 
         <!-- Saudação personalizada -->
-        <div style="margin-bottom: 10px;">
-            <label style="display: flex; align-items: center; cursor: pointer;">
-                <span style="margin-right: 10px;">Saudação personalizada</span>
-                <input type="checkbox" id="toggleSaudacaoPersonalizada" style="display:none;">
+        <div class="campo-form-compacto">
+            <label class="label-toggle">
+                <span class="label-toggle-texto">Saudação personalizada</span>
+                <input type="checkbox" id="toggleSaudacaoPersonalizada" class="oculto">
                 <span class="switch"></span>
             </label>
         </div>
 
         <!-- Campo de texto da Saudação personalizada -->
-        <div style="margin-bottom: 20px;">
+        <div class="campo-form">
             <input type="text" id="inputSaudacaoPersonalizada" placeholder="Digite sua saudação personalizada" disabled
-                   style="padding: 8px; width: 100%; max-width: 400px; border: 1px solid black; box-sizing: border-box;">
+                   class="input-config">
         </div>
 
         <!-- Apagar conta -->
         <div>
-            <a href="index.php?controller=definicoes&method=apagarConta" style="color: red; text-decoration: none; font-weight: bold;">
+            <a class="link-perigo" href="index.php?controller=definicoes&method=apagarConta">
                 Apagar minha conta
             </a>
         </div>
     </div>
 
     <!-- Conteúdo da aba Minha senha -->
-    <div id="conteudoSenha" style="display: none;">
+    <div id="conteudoSenha" class="oculto">
         <h2>Alterar Senha</h2>
 
         <!-- Campo: Nova senha -->
-        <div style="margin-bottom: 15px;">
+        <div class="campo-form-medio">
             <label for="novaSenha"><strong>Nova senha:</strong></label><br>
-            <input type="password" id="novaSenha" name="novaSenha" style="padding: 8px; width: 300px; border: 1px solid black;">
+            <input type="password" id="novaSenha" name="novaSenha" class="input-config input-config-300">
         </div>
 
         <!-- Campo: Confirmar nova senha -->
-        <div style="margin-bottom: 20px;">
+        <div class="campo-form">
             <label for="confirmarSenha"><strong>Confirmar nova senha:</strong></label><br>
-            <input type="password" id="confirmarSenha" name="confirmarSenha" style="padding: 8px; width: 300px; border: 1px solid black;">
+            <input type="password" id="confirmarSenha" name="confirmarSenha" class="input-config input-config-300">
         </div>
 
         <button> 
@@ -99,39 +99,6 @@
     </div>
 
 </div>
-
-<!-- Estilos para botões chave -->
-<style>
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 24px;
-  background-color: #ccc;
-  border-radius: 12px;
-  transition: background-color 0.3s;
-}
-.switch::before {
-  content: "";
-  position: absolute;
-  left: 2px;
-  top: 2px;
-  width: 20px;
-  height: 20px;
-  background-color: white;
-  border-radius: 50%;
-  transition: transform 0.3s;
-}
-input[type="checkbox"]:checked + .switch {
-  background-color: #4caf50;
-}
-input[type="checkbox"]:checked + .switch::before {
-  transform: translateX(26px);
-}
-label {
-  user-select: none;
-}
-</style>
 
 <!-- Script JS abas e botões chave -->
 <script>
@@ -171,16 +138,22 @@ label {
         const conteudoGeral = document.getElementById('conteudoGeral');
         const conteudoSenha = document.getElementById('conteudoSenha');
 
+        // Limpa os estados anteriores das abas (inicial, ativa, inativa)
+        ['aba-inicial', 'aba-ativa', 'aba-inativa'].forEach(function(classe) {
+            abaGeral.classList.remove(classe);
+            abaSenha.classList.remove(classe);
+        });
+
         if (qual === 'geral') {
-            conteudoGeral.style.display = 'block';
-            conteudoSenha.style.display = 'none';
-            abaGeral.style.borderBottom = '2px solid black';
-            abaSenha.style.borderBottom = 'none';
+            conteudoGeral.classList.remove('oculto');
+            conteudoSenha.classList.add('oculto');
+            abaGeral.classList.add('aba-ativa');
+            abaSenha.classList.add('aba-inativa');
         } else {
-            conteudoGeral.style.display = 'none';
-            conteudoSenha.style.display = 'block';
-            abaGeral.style.borderBottom = 'none';
-            abaSenha.style.borderBottom = '2px solid black';
+            conteudoGeral.classList.add('oculto');
+            conteudoSenha.classList.remove('oculto');
+            abaGeral.classList.add('aba-inativa');
+            abaSenha.classList.add('aba-ativa');
         }
     }
 </script>

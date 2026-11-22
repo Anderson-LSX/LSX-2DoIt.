@@ -735,3 +735,157 @@ spam {
 .main-content.fade-target.visible {
   opacity: 1;
 }
+
+
+/*================== definições (settings) ==================*/
+
+/* Abas (Geral | Minha senha) */
+.abas-settings {
+    display: flex;
+    margin-bottom: 20px;
+    gap: 20px;
+}
+
+/* Estados da aba (sobrescrevem a borda padrão de .button-aba-settings) */
+.button-aba-settings.aba-inicial { border-bottom: 5px solid black; } /* aba Geral antes do 1º clique */
+.button-aba-settings.aba-ativa   { border-bottom: 2px solid black; }
+.button-aba-settings.aba-inativa { border-bottom: none; }
+
+/* Esconde elemento (alternado via classList no JS) */
+.oculto {
+    display: none;
+}
+
+/* Espaçamento inferior dos campos */
+.campo-form          { margin-bottom: 20px; }
+.campo-form-medio    { margin-bottom: 15px; }
+.campo-form-compacto { margin-bottom: 10px; }
+
+/* Campos da tela de definições: borda preta e padding menor que o padrão global */
+.input-config {
+    padding: 8px;
+    border: 1px solid black;
+}
+.input-config-200 { width: 200px; }
+.input-config-300 { width: 300px; }
+
+/* Linha de toggle (texto + botão chave) */
+.label-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+.label-toggle-texto {
+    margin-right: 10px;
+}
+
+/* Impede seleção de texto dos labels, somente na tela de definições */
+.card-definicoes label {
+    user-select: none;
+}
+
+/* Link de ação destrutiva */
+.link-perigo {
+    color: red;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+/* Botão chave (toggle) */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    background-color: #ccc;
+    border-radius: 12px;
+    transition: background-color 0.3s;
+}
+.switch::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+input[type="checkbox"]:checked + .switch {
+    background-color: #4caf50;
+}
+input[type="checkbox"]:checked + .switch::before {
+    transform: translateX(26px);
+}
+
+
+/*================== autenticação (cadastro, login, recuperação de senha) ==================*/
+
+/* Botão voltar no canto superior esquerdo: o container posiciona, o link estiliza */
+.btn-voltar-topo {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+}
+.btn-voltar {
+    display: inline-block;
+    padding: 10px 15px;
+    background-color: white;
+    border: 1px solid black;
+    text-decoration: none;
+    color: black;
+    font-weight: bold;
+}
+
+/* Body da tela de cadastro: centraliza o card na vertical e na horizontal */
+.body-cadastro {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+/* Texto de apoio abaixo do título do card de login/cadastro */
+.card-login-subtitulo {
+    font-size: 16px;
+}
+
+/* Mensagens de erro: base + variações de espaçamento */
+.msg-erro {
+    color: red;
+    font-weight: bold;
+}
+.msg-erro-form  { margin-bottom: 15px; } /* erro geral do formulário */
+.msg-erro-campo { margin-top: 5px; }     /* erro junto a um campo (ex.: checkbox) */
+
+/* Campos dos formulários de autenticação */
+.campo-auth {
+    margin-bottom: 10px;
+    text-align: left;
+}
+.input-auth {
+    width: 100%;
+    padding: 6px;
+}
+
+/* Botão de envio dos formulários de autenticação */
+.btn-auth {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 10px;
+}
+
+
+/*================== mensagens ==================*/
+
+/* Mensagem de sucesso (par do .msg-erro) */
+.msg-sucesso {
+    color: green;
+    font-weight: bold;
+}
+.msg-sucesso-form {
+    margin-bottom: 20px;
+}

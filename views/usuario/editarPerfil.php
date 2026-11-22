@@ -7,53 +7,50 @@
 </head>
 <body>
 
+<!-- Cabeçalho da página -->
+<div class="card-headers">
+    <h1>Editar Perfil</h1>
+    <p>Atualize os dados do seu perfil.</p>
+</div>
+
 <!-- Breadcrumb -->
-<div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
-    <p style="font-size: 14px; color: #555;">
-        <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">Home</a> &gt;
-        <a href="index.php?controller=usuario&method=meuPerfil" style="text-decoration: none; color: #555;">Meu Perfil</a> &gt;
+<div class="breadcrumbs">
+    <p class="breadcrumbs-p">
+        <a class="breadcrumbs-a" href="index.php?controller=home&method=index">Home</a> &gt;
+        <a class="breadcrumbs-a" href="index.php?controller=usuario&method=meuPerfil">Meu Perfil</a> &gt;
         Editar Perfil
     </p>
 </div>
 
-<!-- Card principal -->
-<div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
+<!-- Card com o formulário -->
+<div class="card">
 
-    
-
-    <h1>Editar Perfil</h1>
-    
 <?php if (!empty($_GET['sucesso'])): ?>
-    <div style="color: green; font-weight: bold; margin-bottom: 20px;">
+    <div class="msg-sucesso msg-sucesso-form">
         Dados atualizados com sucesso!
     </div>
 <?php endif; ?>
 
-    <form action="index.php?controller=usuario&method=salvarEdicao" method="POST" style="max-width: 600px;">
+    <form action="index.php?controller=usuario&method=salvarEdicao" method="POST">
         <input type="hidden" name="usu_id" value="<?= htmlspecialchars($dadosParaView['id'] ?? '') ?>">
 
         <label for="nome">Nome:</label><br>
         <input type="text" id="nome" name="nome" required
-               value="<?= htmlspecialchars($dadosParaView['nome'] ?? '') ?>" style="width: 100%;"><br><br>
+               value="<?= htmlspecialchars($dadosParaView['nome'] ?? '') ?>"><br><br>
 
         <label for="apelido">Apelido (opcional):</label><br>
         <input type="text" id="apelido" name="apelido"
-               value="<?= htmlspecialchars($dadosParaView['apelido'] ?? '') ?>" style="width: 100%;"><br><br>
+               value="<?= htmlspecialchars($dadosParaView['apelido'] ?? '') ?>"><br><br>
 
         <label for="idade">Idade:</label><br>
         <input type="number" id="idade" name="idade" required min="1" max="120"
-               value="<?= htmlspecialchars($dadosParaView['idade'] ?? '') ?>" style="width: 100%;"><br><br>
+               value="<?= htmlspecialchars($dadosParaView['idade'] ?? '') ?>"><br><br>
 
-        <button type="submit" style="padding: 10px 20px; font-weight: bold; border: 1px solid black; background-color: white; cursor: pointer;">
+        <button type="submit">
             Salvar
         </button>
     </form>
 </div>
-
-<!-- Rodapé padrão -->
-<footer style="position: fixed; border: 1px solid black; padding: 20px; bottom: 0; left: 220px; right: 220px; background: none; z-index: 999;">
-    <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
-</footer>
 
 </body>
 </html>

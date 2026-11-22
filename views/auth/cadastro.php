@@ -1,15 +1,6 @@
 <!-- Botão de retorno padrão no canto superior esquerdo -->
-<div style="position: absolute; top: 20px; left: 20px;">
-    <a href="index.php?controller=auth&method=login"
-       style="
-           display: inline-block;
-           padding: 10px 15px;
-           background-color: white;
-           border: 1px solid black;
-           text-decoration: none;
-           color: black;
-           font-weight: bold;
-       ">
+<div class="btn-voltar-topo">
+    <a class="btn-voltar" href="index.php?controller=auth&method=login">
         &#8592; Retornar ao login
     </a>
 </div>
@@ -35,18 +26,18 @@ $aceitaTermosChecked = $dadosParaView['aceitaTermosChecked'] ?? '';  // Estado d
     <title>Cadastro de Usuário</title>
 </head>
 <!-- Corpo da página estilizado para centralizar vertical e horizontalmente o conteúdo -->
-<body style="display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
+<body class="body-cadastro">
 
     <!-- Div que funciona como card contendo o formulário, com borda preta fina e padding -->
     <div class="card-login">
 
         <!-- Título da página -->
         <h1>Cadastro de Usuário</h1>
-        <p style="font-size: 16px;">Preencha os campos abaixo para criar sua conta</p>
+        <p class="card-login-subtitulo">Preencha os campos abaixo para criar sua conta</p>
 
         <!-- Exibe a mensagem principal de erro, se existir -->
         <?php if ($erroPrincipal): ?>
-            <p style="color: red; font-weight: bold; margin-bottom: 15px;">
+            <p class="msg-erro msg-erro-form">
                 <?= htmlspecialchars($erroPrincipal) ?>
             </p>
         <?php endif; ?>
@@ -55,7 +46,7 @@ $aceitaTermosChecked = $dadosParaView['aceitaTermosChecked'] ?? '';  // Estado d
         <form action="index.php?controller=auth&method=cadastroSubmit" method="post" novalidate>
 
             <!-- Campo nome, obrigatório -->
-            <div style="margin-bottom: 10px; text-align: left;">
+            <div class="campo-auth">
                 <label for="nome">Nome*:</label><br />
                 <input 
                     type="text" 
@@ -63,23 +54,23 @@ $aceitaTermosChecked = $dadosParaView['aceitaTermosChecked'] ?? '';  // Estado d
                     name="nome" 
                     value="<?= htmlspecialchars($nomeVal) ?>"
                     required 
-                    style="width: 100%; padding: 6px;"/>
+                    class="input-auth"/>
             </div>
 
             <!-- Campo apelido, opcional -->
-            <div style="margin-bottom: 10px; text-align: left;">
+            <div class="campo-auth">
                 <label for="apelido">Apelido:</label><br />
                 <input 
                     type="text" 
                     id="apelido" 
                     name="apelido" 
                     value="<?= htmlspecialchars($apelidoVal) ?>" 
-                    style="width: 100%; padding: 6px;" 
+                    class="input-auth" 
                 />
             </div>
 
             <!-- Campo idade, obrigatório -->
-            <div style="margin-bottom: 10px; text-align: left;">
+            <div class="campo-auth">
                 <label for="idade">Idade*:</label><br />
                 <input 
                     type="number" 
@@ -87,12 +78,12 @@ $aceitaTermosChecked = $dadosParaView['aceitaTermosChecked'] ?? '';  // Estado d
                     name="idade" 
                     value="<?= htmlspecialchars($idadeVal) ?>" 
                     required 
-                    style="width: 100%; padding: 6px;" 
+                    class="input-auth" 
                 />
             </div>
 
             <!-- Campo login, obrigatório -->
-            <div style="margin-bottom: 10px; text-align: left;">
+            <div class="campo-auth">
                 <label for="login">Login*:</label><br />
                 <input 
                     type="text" 
@@ -100,36 +91,36 @@ $aceitaTermosChecked = $dadosParaView['aceitaTermosChecked'] ?? '';  // Estado d
                     name="login" 
                     value="<?= htmlspecialchars($loginVal) ?>" 
                     required 
-                    style="width: 100%; padding: 6px;" 
+                    class="input-auth" 
                 />
             </div>
 
             <!-- Campo senha, obrigatório -->
-            <div style="margin-bottom: 10px; text-align: left;">
+            <div class="campo-auth">
                 <label for="senha">Senha*:</label><br />
                 <input 
                     type="password" 
                     id="senha" 
                     name="senha" 
                     required 
-                    style="width: 100%; padding: 6px;" 
+                    class="input-auth" 
                 />
             </div>
 
             <!-- Campo repetir senha, obrigatório -->
-            <div style="margin-bottom: 10px; text-align: left;">
+            <div class="campo-auth">
                 <label for="repetir_senha">Repetir Senha*:</label><br />
                 <input 
                     type="password" 
                     id="repetir_senha" 
                     name="repetir_senha" 
                     required 
-                    style="width: 100%; padding: 6px;" 
+                    class="input-auth" 
                 />
             </div>
 
             <!-- Checkbox de aceite dos termos, obrigatório -->
-            <div style="margin-bottom: 10px; text-align: left;">
+            <div class="campo-auth">
                 <input 
                     type="checkbox" 
                     id="aceita_termos" 
@@ -143,19 +134,14 @@ $aceitaTermosChecked = $dadosParaView['aceitaTermosChecked'] ?? '';  // Estado d
 
                 <!-- Exibe mensagem de erro do checkbox, se existir -->
                 <?php if ($erroCheckbox): ?>
-                    <p style="color: red; font-weight: bold; margin-top: 5px;">
+                    <p class="msg-erro msg-erro-campo">
                         <?= htmlspecialchars($erroCheckbox) ?>
                     </p>
                 <?php endif; ?>
             </div>
 
             <!-- Botão de envio do formulário -->
-            <button type="submit" style="
-                padding: 8px 16px;
-                cursor: pointer;
-                font-size: 16px;
-                margin-top: 10px;
-            ">
+            <button type="submit" class="btn-auth">
                 Cadastrar
             </button>
         </form>
