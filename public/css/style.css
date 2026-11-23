@@ -8,6 +8,9 @@ body {
     margin-right: 0px;
 }
 
+a {
+    font-family: 'Roboto', sans-serif;
+}
 
 /*================== menu lateral ==================*/
 
@@ -523,17 +526,30 @@ background-color: white;
 .prioridade-baixa::after { content: "🟥"; }
 
 /* Botões de ação dentro da tabela */
-.acoes {
-  text-align: center;
+.acoes .btn {
+  width: 34px;              /* Largura fixa para ficar quadrado */
+  height: 34px;             /* Altura igual à largura */
+  padding: 0;               /* Remove o padding largo do .btn */
+  display: inline-flex;     /* Centraliza o ícone perfeitamente */
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  border-radius: 8px;
 }
 
 .btn {
+  display: inline-block;
+  text-decoration: none;
+  font-family: inherit;      /* Garante que o <button> e o <a> usem a exata mesma fonte */
+  font-size: 14px;           /* Tamanho igual ao texto "Salvar" */
+  font-weight: 700;          /* Deixa "Editar" em negrito igual ao "Salvar" */
+  line-height: 1.2;          /* Iguala a altura vertical entre <a> e <button> */
+  text-align: center;
+  padding: 10px 20px;        /* Dá a mesma largura e altura do botão "Salvar" */
+  border-radius: 6px;        /* Arredondamento idêntico */
   border: none;
   cursor: pointer;
   margin: 0 2px;
-  font-size: 16px;
-  padding: 5px 5px;
-  border-radius: 8px;
 }
 
 .btn.ver { background-color: #3a3a3a; color: #fff; }
@@ -888,4 +904,21 @@ input[type="checkbox"]:checked + .switch::before {
 }
 .msg-sucesso-form {
     margin-bottom: 20px;
+}
+
+
+/*================== posicionamento em cards ==================*/
+
+/* Card que serve de referência para elementos posicionados dentro dele */
+.card-relativo {
+    position: relative;
+}
+
+/* Botão fixado no canto superior direito do card (usado junto com .btn) */
+.btn-canto {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    text-decoration: none; /* é um <a>, não um <button> */
+    font-weight: bold;     /* igual ao <button> padrão do site */
 }
