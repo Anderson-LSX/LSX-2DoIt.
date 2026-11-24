@@ -10,12 +10,12 @@ $direto = !isset($_SERVER['HTTP_X_REQUESTED_WITH']);
 
 <?php if ($direto): ?>
     <!-- Breadcrumb -->
-    <div style="margin-left: 220px; margin-right: 220px; margin-top: 40px; margin-bottom: 10px;">
-        <p style="font-size: 14px; color: #555;">
-            <a href="index.php?controller=home&method=index" style="text-decoration: none; color: #555;">
+    <div>
+        <p>
+            <a href="index.php?controller=home&method=index">
                 Home
             </a> &gt; 
-            <a href="index.php?controller=tarefa&method=gestaoTarefa" style="text-decoration: none; color: #555;">
+            <a href="index.php?controller=tarefa&method=gestaoTarefa">
                 Minhas tarefas
             </a> &gt; 
             Editar
@@ -23,10 +23,9 @@ $direto = !isset($_SERVER['HTTP_X_REQUESTED_WITH']);
     </div>
 
     <!-- Card principal -->
-    <div style="border: 1px solid black; padding: 20px; margin-left: 220px; margin-right: 220px; margin-bottom: 20px; position: relative;">
+    <div>
         <!-- Botão X para voltar -->
-        <a href="index.php?controller=tarefa&method=gestaoTarefa" 
-           style="position: absolute; top: 10px; right: 15px; text-decoration: none; font-size: 20px; font-weight: bold; color: #000;">
+        <a href="index.php?controller=tarefa&method=gestaoTarefa">
             X
         </a>
 
@@ -38,7 +37,7 @@ $direto = !isset($_SERVER['HTTP_X_REQUESTED_WITH']);
 <?php endif; ?>
 
 <!-- Formulário de edição -->
-<form method="POST" action="index.php?controller=tarefa&method=atualizar" class="modal-form" style="margin-top: 20px;">
+<form method="POST" action="index.php?controller=tarefa&method=atualizar" class="modal-form">
     <input type="hidden" name="task_id" value="<?= htmlspecialchars($dadosParaView['id'] ?? '') ?>">
 
     <label for="titulo">Título*</label><br>
@@ -62,7 +61,6 @@ $direto = !isset($_SERVER['HTTP_X_REQUESTED_WITH']);
 
     <label for="descricao">Descrição</label><br>
     <textarea id="descricao" name="descricao"
-        style="height: 120px; resize: none; overflow-y: auto;"
         maxlength="280"><?= htmlspecialchars($dadosParaView['descricao'] ?? '') ?></textarea>
 
     <div class="acoes-modal">
@@ -74,7 +72,7 @@ $direto = !isset($_SERVER['HTTP_X_REQUESTED_WITH']);
     </div> <!-- fecha card -->
 
     <!-- Rodapé padrão -->
-    <footer style="position: fixed; border: 1px solid black; padding: 20px; bottom: 0; left: 220px; right: 220px; background: none; z-index: 999;">
-        <p align="right">&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
+    <footer>
+        <p>&copy; <?= date('Y') ?> Organizador. Todos os direitos reservados.</p>
     </footer>
 <?php endif; ?>

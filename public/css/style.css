@@ -8,9 +8,6 @@ body {
     margin-right: 0px;
 }
 
-a {
-    font-family: 'Roboto', sans-serif;
-}
 
 /*================== menu lateral ==================*/
 
@@ -526,30 +523,17 @@ background-color: white;
 .prioridade-baixa::after { content: "🟥"; }
 
 /* Botões de ação dentro da tabela */
-.acoes .btn {
-  width: 34px;              /* Largura fixa para ficar quadrado */
-  height: 34px;             /* Altura igual à largura */
-  padding: 0;               /* Remove o padding largo do .btn */
-  display: inline-flex;     /* Centraliza o ícone perfeitamente */
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  border-radius: 8px;
+.acoes {
+  text-align: center;
 }
 
 .btn {
-  display: inline-block;
-  text-decoration: none;
-  font-family: inherit;      /* Garante que o <button> e o <a> usem a exata mesma fonte */
-  font-size: 14px;           /* Tamanho igual ao texto "Salvar" */
-  font-weight: 700;          /* Deixa "Editar" em negrito igual ao "Salvar" */
-  line-height: 1.2;          /* Iguala a altura vertical entre <a> e <button> */
-  text-align: center;
-  padding: 10px 20px;        /* Dá a mesma largura e altura do botão "Salvar" */
-  border-radius: 6px;        /* Arredondamento idêntico */
   border: none;
   cursor: pointer;
   margin: 0 2px;
+  font-size: 16px;
+  padding: 5px 5px;
+  border-radius: 8px;
 }
 
 .btn.ver { background-color: #3a3a3a; color: #fff; }
@@ -600,13 +584,13 @@ spam {
       font-weight: bold;
   }
 
+  /* Campos dos modais: a aparência (borda, raio, padding, fundo) vem da regra global
+     de input/textarea/select; aqui fica só o que é próprio do modal (largura e espaçamento) */
   .modal-form input,
   .modal-form textarea,
   .modal-form select {
       width: 100%;
-      padding: 8px;
       margin-bottom: 20px;
-      border: 1px solid #000;
       box-sizing: border-box;
   }
 
@@ -844,14 +828,20 @@ input[type="checkbox"]:checked + .switch::before {
     top: 20px;
     left: 20px;
 }
+/* Botão voltar: mesmo visual do botão padrão do site (regra global de button), aplicado a um link */
 .btn-voltar {
     display: inline-block;
-    padding: 10px 15px;
-    background-color: white;
-    border: 1px solid black;
-    text-decoration: none;
-    color: black;
+    border-radius: 6px;
+    padding: 10px 16px;
+    background-color: #013a73;
+    color: white;
+    border: none;
     font-weight: bold;
+    font-size: 13.3333px;
+    font-family: Arial, sans-serif;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-decoration: none;
 }
 
 /* Body da tela de cadastro: centraliza o card na vertical e na horizontal */
@@ -921,4 +911,37 @@ input[type="checkbox"]:checked + .switch::before {
     right: 15px;
     text-decoration: none; /* é um <a>, não um <button> */
     font-weight: bold;     /* igual ao <button> padrão do site */
+}
+
+/* Formulários de modal (nova/editar tarefa) */
+.modal-form {
+    margin-top: 20px;
+}
+.modal-form textarea {
+    height: 120px;
+    resize: none;
+    overflow-y: auto;
+}
+
+
+/* Container que centraliza o card na tela (recuperação de senha) */
+.container-auth {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+}
+
+/* Mensagem de erro no topo da página, centralizada (usar junto com .msg-erro) */
+.msg-erro-topo {
+    max-width: 400px;
+    margin: 0 auto 20px auto;
+    padding: 10px;
+    text-align: center;
+}
+
+/* Botão que ocupa toda a largura do card */
+.btn-largura-total {
+    width: 100%;
 }
