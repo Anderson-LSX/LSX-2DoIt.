@@ -104,6 +104,46 @@ function confirmarApagar(taskId) {
 }
 
 
+/* Modal de confirmação para apagar a conta (aberto pelo menu de Definições) */
+
+// Palavra que o usuário precisa digitar para liberar o botão Apagar
+const PALAVRA_CONFIRMA_APAGAR_CONTA = 'Desaparecer como o Gato';
+
+function abrirModalApagarConta() {
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'flex';
+  const modal = document.getElementById('modalContent');
+  modal.innerHTML = `
+    <div class="modal-form">
+      <h2>Pronto para virar fumaça?</h2>
+      <p>"Assim como o Gato de Cheshire, seus dados vão sumir sem deixar vestígios (nem mesmo o sorriso)."</p>
+
+      <label for="confirmaApagarConta">Digite <strong>${PALAVRA_CONFIRMA_APAGAR_CONTA}</strong> para confirmar:</label>
+      <input type="text" id="confirmaApagarConta" autocomplete="off" oninput="verificarConfirmacaoApagarConta()">
+
+      <div class="acoes-modal">
+        <button type="button" onclick="document.getElementById('overlay').style.display='none';">Cancelar</button>
+        <button type="button" class="btn-perigo" id="btnConfirmarApagarConta" onclick="confirmarApagarConta()" disabled>Apagar</button>
+      </div>
+    </div>
+  `;
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
+  document.getElementById('confirmaApagarConta').focus();
+}
+
+// Habilita o botão Apagar somente quando a palavra digitada for exatamente a esperada
+function verificarConfirmacaoApagarConta() {
+  const digitado = document.getElementById('confirmaApagarConta').value.trim();
+  document.getElementById('btnConfirmarApagarConta').disabled = (digitado !== PALAVRA_CONFIRMA_APAGAR_CONTA);
+}
+
+function confirmarApagarConta() {
+  // Confere de novo antes de seguir (o botão desabilitado sozinho não é garantia)
+  const digitado = document.getElementById('confirmaApagarConta').value.trim();
+  if (digitado !== PALAVRA_CONFIRMA_APAGAR_CONTA) return;
+  window.location.href = 'index.php?controller=usuario&method=apagarContaConfirmada';
+}
+
 function toggleMenu() {
   const menu = document.querySelector(".menu-lateral-slide");
   const estaRetraido = menu.classList.contains("retraido");

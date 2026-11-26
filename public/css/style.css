@@ -599,6 +599,22 @@ spam {
       margin-top: 20px;
   }
 
+  /* Espaço entre os botões de ação dos modais */
+  .modal-form .acoes-modal button {
+      margin-left: 10px;
+  }
+
+  /* Botão de ação destrutiva (mesmo vermelho do botão Apagar da tabela) */
+  .btn-perigo {
+      background-color: #9c0000;
+  }
+
+  /* Botão de ação desabilitado nos modais (ex.: Apagar antes de digitar a palavra de confirmação) */
+  .modal-form button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+  }
+
   .radiobox-modais {
     display: flex;
     gap: 10px;
@@ -738,18 +754,6 @@ spam {
 
 
 /*================== definições (settings) ==================*/
-
-/* Abas (Geral | Minha senha) */
-.abas-settings {
-    display: flex;
-    margin-bottom: 20px;
-    gap: 20px;
-}
-
-/* Estados da aba (sobrescrevem a borda padrão de .button-aba-settings) */
-.button-aba-settings.aba-inicial { border-bottom: 5px solid black; } /* aba Geral antes do 1º clique */
-.button-aba-settings.aba-ativa   { border-bottom: 2px solid black; }
-.button-aba-settings.aba-inativa { border-bottom: none; }
 
 /* Esconde elemento (alternado via classList no JS) */
 .oculto {
@@ -944,4 +948,215 @@ input[type="checkbox"]:checked + .switch::before {
 /* Botão que ocupa toda a largura do card */
 .btn-largura-total {
     width: 100%;
+}
+
+/*================== login ==================*/
+
+/* Texto centralizado (ex.: chamada abaixo da logo no card de login) */
+.texto-centralizado {
+    text-align: center;
+}
+
+/* Formulário dos cards de autenticação: afasta do texto acima */
+.form-auth {
+    margin-top: 20px;
+}
+
+/* Bloco de links no rodapé do card de login (esqueci a senha / cadastro) */
+.card-login-links {
+    margin-top: 20px;
+    text-align: center;
+}
+
+/*================== layout de seções (menu lateral + cards): estatísticas e definições ==================*/
+
+/* Rolagem suave ao clicar nos links do menu de seções (só nas páginas que têm esse layout) */
+html:has(.layout-secoes) {
+    scroll-behavior: smooth;
+}
+
+/* Duas colunas: menu de seções ao lado + conteúdo. Margens iguais às dos demais cards do site */
+.layout-secoes {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 20px;
+    align-items: start;
+    margin-left: 250px;
+    margin-right: 220px;
+    margin-bottom: 60px; /* folga para o footer fixo não cobrir a última seção */
+}
+
+/* Dentro deste layout o espaçamento lateral vem do grid; os cards ficam sem as margens laterais do .card */
+.layout-secoes .card {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* Menu das seções: acompanha a rolagem da página */
+.menu-secoes {
+    position: sticky;
+    top: 20px;
+}
+
+.menu-secoes ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Link do menu: destaque ao passar o mouse */
+.menu-secoes a {
+    display: block;
+    padding: 8px 12px;
+    margin-bottom: 4px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #303031;
+}
+.menu-secoes a:hover{
+    background-color: #eef2f7;
+    color: #013a73;
+}
+.menu-secoes a.ativo {
+    background-color: #bdc9ffab;
+    color: #002e5c;
+}
+
+/* Item de ação destrutiva no menu (ex.: Apagar minha conta): mantém a cor de perigo */
+.menu-secoes a.link-perigo,
+.menu-secoes a.link-perigo:hover {
+    color: red;
+}
+
+/* Seções: o scroll para no topo com uma pequena folga */
+.conteudo-secoes section {
+    scroll-margin-top: 20px;
+}
+
+
+/*================== TESTE: aparência de dashboard na home ==================
+   Bloco experimental e isolado. Só vale na home, porque os seletores dependem da
+   presença de .card-views-home-father (que só existe lá). Nenhuma outra tela é afetada.
+   Para desfazer o teste, basta apagar este bloco inteiro (até o fim do arquivo). */
+
+/* Fundo da página mais claro, para os cards brancos se destacarem */
+body:has(.card-views-home-father) {
+    background-color: #f3f4f6;
+}
+
+/* Cabeçalho: sem faixa branca com borda, só o título maior e mais leve */
+body:has(.card-views-home-father) .card-headers {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+}
+body:has(.card-views-home-father) .card-headers h1 {
+    font-size: 32px;
+    font-weight: 500;
+}
+
+/* Card de boas-vindas: branco, cantos bem arredondados, sem borda colorida */
+.card-interativo {
+    background-color: #ceffdb;
+    border: 3px solid #00d6529d;
+    border-radius: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    padding: 28px 30px;
+    font-size: 16px;
+    font-weight: 400;
+    color: #555555;
+
+    
+    
+    
+}
+
+/* Cards numéricos: ocupam a linha toda, com número grande em destaque */
+.card-views-home-father {
+    gap: 20px;
+}
+.card-views-home {
+    flex: 1;
+    width: auto;
+    height: auto;
+    min-height: 120px;
+    box-sizing: border-box;
+    padding: 24px;
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+.card-views-home spam {
+    display: block;
+    font-size: 14px;
+    color: #6b7280;
+}
+.card-views-home p {
+    margin: 12px 0 0 0;
+    font-size: 44px;
+    font-weight: 700;
+    line-height: 1;
+    color: #111111;
+}
+
+/* Primeiro card em destaque, escuro, como o card de destaque do exemplo */
+.card-views-home:first-child {
+    background-color: #18252f;
+}
+.card-views-home:first-child spam {
+    color: #c5ccd3;
+}
+.card-views-home:first-child p {
+    color: #ffffff;
+}
+
+/* Cards das tabelas: sem borda, cantos arredondados e sombra suave */
+body:has(.card-views-home-father) .card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    padding: 28px 30px;
+}
+body:has(.card-views-home-father) .titulo-secao {
+    font-size: 20px;
+    font-weight: 500;
+}
+body:has(.card-views-home-father) .card hr {
+    border: 0;
+    border-top: 1px solid #eeeeee;
+    margin: 16px 0 0 0;
+}
+
+/* Tabelas: cabeçalho discreto, linhas limpas, sem zebrado */
+body:has(.card-views-home-father) .tabela-tarefas th {
+    background-color: transparent;
+    color: #8a8f98;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 12px;
+    border-bottom: 1px solid #eeeeee;
+}
+body:has(.card-views-home-father) .tabela-tarefas td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #f1f2f4;
+    color: #222222;
+}
+body:has(.card-views-home-father) .tabela-tarefas tbody tr:nth-child(odd),
+body:has(.card-views-home-father) .tabela-tarefas tbody tr:nth-child(even) {
+    background-color: transparent;
+}
+body:has(.card-views-home-father) .tabela-tarefas tbody tr:hover {
+    background-color: #f7f7fb;
+}
+
+/* Aviso de tabela vazia: caixa suave, sem as margens duplicadas */
+body:has(.card-views-home-father) .sem-tarefas-info {
+    margin: 0 0 20px 0;
+    padding: 14px 16px;
+    background-color: #f7f7f9;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    font-weight: 400;
+    color: #777777;
 }

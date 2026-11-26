@@ -16,91 +16,87 @@
     </p>
 </div>
 
-<!-- Card com dados de definições -->
-<div class="card card-definicoes">
+<!-- Área de definições: menu de seções ao lado + card da seção escolhida -->
+<div class="layout-secoes">
 
-    <!-- Abas (Geral | Minha senha) -->
-    <div class="abas-settings">
-        <button class="button-aba-settings aba-inicial" onclick="mostrarAba('geral')" id="abaGeral">
-            <spam>Geral</spam>
-        </button>
-        <button class="button-aba-settings" onclick="mostrarAba('senha')" id="abaSenha">
-            <spam>Minha senha</spam>
-        </button>
+    <!-- Menu das seções: cada link mostra o card correspondente -->
+    <nav class="card menu-secoes">
+        <p class="titulo-secao">Seções</p>
+        <ul>
+            <li><a href="#geral" class="ativo" data-secao="geral" onclick="mostrarSecao('geral'); return false;">Geral</a></li>
+            <li><a href="#senha" data-secao="senha" onclick="mostrarSecao('senha'); return false;">Minha senha</a></li>
+            <li><a href="#" class="link-perigo" onclick="abrirModalApagarConta(); return false;">Apagar minha conta</a></li>
+        </ul>
+    </nav>
+
+    <div class="conteudo-secoes">
+
+        <!-- Seção Geral -->
+        <section id="geral" class="card card-definicoes">
+            <h2 class="titulo-secao">Configurações Gerais</h2>
+
+            <!-- Tema -->
+            <div class="campo-form">
+                <label for="tema"><strong>Tema:</strong></label><br>
+                <select id="tema" name="tema" class="input-config input-config-200">
+                    <option value="default">Default</option>
+                    <option value="indigo">Indigo</option>
+                    <option value="clear">Clear</option>
+                    <option value="meia-noite">Meia-Noite</option>
+                    <option value="win-98">Win-98</option>
+                </select>
+            </div>
+
+            <!-- Saudação dinâmica -->
+            <div class="campo-form">
+                <label class="label-toggle">
+                    <span class="label-toggle-texto">Saudação dinâmica     </span>
+                    <input type="checkbox" id="toggleSaudacaoDinamica" class="oculto">
+                    <span class="switch"></span>
+                </label>
+            </div>
+
+            <!-- Saudação personalizada -->
+            <div class="campo-form-compacto">
+                <label class="label-toggle">
+                    <span class="label-toggle-texto">Saudação personalizada</span>
+                    <input type="checkbox" id="toggleSaudacaoPersonalizada" class="oculto">
+                    <span class="switch"></span>
+                </label>
+            </div>
+
+            <!-- Campo de texto da Saudação personalizada -->
+            <div class="campo-form">
+                <input type="text" id="inputSaudacaoPersonalizada" placeholder="Digite sua saudação personalizada" disabled
+                       class="input-config">
+            </div>
+        </section>
+
+        <!-- Seção Minha senha -->
+        <section id="senha" class="card card-definicoes oculto">
+            <h2 class="titulo-secao">Alterar Senha</h2>
+
+            <!-- Campo: Nova senha -->
+            <div class="campo-form-medio">
+                <label for="novaSenha"><strong>Nova senha:</strong></label><br>
+                <input type="password" id="novaSenha" name="novaSenha" class="input-config input-config-300">
+            </div>
+
+            <!-- Campo: Confirmar nova senha -->
+            <div class="campo-form">
+                <label for="confirmarSenha"><strong>Confirmar nova senha:</strong></label><br>
+                <input type="password" id="confirmarSenha" name="confirmarSenha" class="input-config input-config-300">
+            </div>
+
+            <button>
+                Salvar nova senha
+            </button>
+        </section>
+
     </div>
-
-    <!-- Conteúdo da aba Geral -->
-    <div id="conteudoGeral">
-        <h2>Configurações Gerais</h2>
-
-        <!-- Tema -->
-        <div class="campo-form">
-            <label for="tema"><strong>Tema:</strong></label><br>
-            <select id="tema" name="tema" class="input-config input-config-200">
-                <option value="default">Default</option>
-                <option value="indigo">Indigo</option>
-                <option value="clear">Clear</option>
-                <option value="meia-noite">Meia-Noite</option>
-                <option value="win-98">Win-98</option>
-            </select>
-        </div>
-
-        <!-- Saudação dinâmica -->
-        <div class="campo-form">
-            <label class="label-toggle">
-                <span class="label-toggle-texto">Saudação dinâmica     </span>
-                <input type="checkbox" id="toggleSaudacaoDinamica" class="oculto">
-                <span class="switch"></span>
-            </label>
-        </div>
-
-        <!-- Saudação personalizada -->
-        <div class="campo-form-compacto">
-            <label class="label-toggle">
-                <span class="label-toggle-texto">Saudação personalizada</span>
-                <input type="checkbox" id="toggleSaudacaoPersonalizada" class="oculto">
-                <span class="switch"></span>
-            </label>
-        </div>
-
-        <!-- Campo de texto da Saudação personalizada -->
-        <div class="campo-form">
-            <input type="text" id="inputSaudacaoPersonalizada" placeholder="Digite sua saudação personalizada" disabled
-                   class="input-config">
-        </div>
-
-        <!-- Apagar conta -->
-        <div>
-            <a class="link-perigo" href="index.php?controller=definicoes&method=apagarConta">
-                Apagar minha conta
-            </a>
-        </div>
-    </div>
-
-    <!-- Conteúdo da aba Minha senha -->
-    <div id="conteudoSenha" class="oculto">
-        <h2>Alterar Senha</h2>
-
-        <!-- Campo: Nova senha -->
-        <div class="campo-form-medio">
-            <label for="novaSenha"><strong>Nova senha:</strong></label><br>
-            <input type="password" id="novaSenha" name="novaSenha" class="input-config input-config-300">
-        </div>
-
-        <!-- Campo: Confirmar nova senha -->
-        <div class="campo-form">
-            <label for="confirmarSenha"><strong>Confirmar nova senha:</strong></label><br>
-            <input type="password" id="confirmarSenha" name="confirmarSenha" class="input-config input-config-300">
-        </div>
-
-        <button> 
-            Salvar nova senha
-        </button>
-    </div>
-
 </div>
 
-<!-- Script JS abas e botões chave -->
+<!-- Script JS do menu de seções e botões chave -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const toggleDinamica = document.getElementById('toggleSaudacaoDinamica');
@@ -132,29 +128,14 @@
         atualizarInput();
     });
 
-    function mostrarAba(qual) {
-        const abaGeral = document.getElementById('abaGeral');
-        const abaSenha = document.getElementById('abaSenha');
-        const conteudoGeral = document.getElementById('conteudoGeral');
-        const conteudoSenha = document.getElementById('conteudoSenha');
-
-        // Limpa os estados anteriores das abas (inicial, ativa, inativa)
-        ['aba-inicial', 'aba-ativa', 'aba-inativa'].forEach(function(classe) {
-            abaGeral.classList.remove(classe);
-            abaSenha.classList.remove(classe);
+    // Mostra apenas o card da seção escolhida e destaca o item correspondente no menu
+    function mostrarSecao(qual) {
+        document.querySelectorAll('.conteudo-secoes > section').forEach(function(secao) {
+            secao.classList.toggle('oculto', secao.id !== qual);
         });
 
-        if (qual === 'geral') {
-            conteudoGeral.classList.remove('oculto');
-            conteudoSenha.classList.add('oculto');
-            abaGeral.classList.add('aba-ativa');
-            abaSenha.classList.add('aba-inativa');
-        } else {
-            conteudoGeral.classList.add('oculto');
-            conteudoSenha.classList.remove('oculto');
-            abaGeral.classList.add('aba-inativa');
-            abaSenha.classList.add('aba-ativa');
-        }
+        document.querySelectorAll('.menu-secoes a').forEach(function(link) {
+            link.classList.toggle('ativo', link.dataset.secao === qual);
+        });
     }
 </script>
-

@@ -22,9 +22,7 @@
     </div>
 
 <!-- Um futuro card interativo-->
-    <div class="card-interativo">Bem-vindo ao seu organizador de tarefas pessoal. 
-        Aqui você pode acompanhar suas tarefas, definir prioridades e manter-se organizado. 
-        Vamos começar a organizar seu dia!</div>
+    <div class="card-interativo">Naquela direção 👈 vive um Chapeleiro. E naquela outra direção 👉 vive uma Lebre de Março. Visite qualquer um dos dois: ambos são loucos. 😸😹🐈</div>
 <!-- Linha divisória 
 <div style="height: 1px; background-color: black; margin-bottom: 10px; margin-left: 220px; margin-right: 220px;"></div>
 -->
